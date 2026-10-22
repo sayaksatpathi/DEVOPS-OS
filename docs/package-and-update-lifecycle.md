@@ -32,5 +32,23 @@ Master-prompt §6.13 (gap #9). What DevOS does today and the policy for OS updat
   `apt --fix-broken install`); DevOS `apply` is idempotent and safe to re-run. VM-level failure
   injection for mid-update interruption is tracked in testing-strategy.md.
 
+## Reproducibility vs. security updates (the lockfile tension)
+
+Pinning apt packages to exact versions from the lockfile gives reproducibility **only while
+those versions remain in the live archive**. Ubuntu's archive keeps just the current version
+of each package, so a security update supersedes a pinned version and the pin stops resolving.
+Hard-failing on that would also violate the rule *never freeze a vulnerable package to satisfy
+a stale lock*. Therefore DevOS uses **best-effort pinning**:
+
+1. `apply` tries the lockfile-pinned `name=version`.
+2. If a pin is unavailable (archive moved), it installs the latest and emits a loud
+   `REPRO_DRIFT` notice — you then re-lock (`devos profile lock`) to capture the new state.
+
+**Strict, time-stable reproducibility** requires a *snapshot archive*, not the live one:
+pin apt sources to **snapshot.ubuntu.com** at a recorded timestamp and record that timestamp
+in the lockfile. That is the correct long-term design (tracked as a roadmap item); the current
+engine does best-effort pinning + drift reporting, which is honest about when reproducibility
+was broken by an archive move.
+
 ## EOL
 A DevOS release is EOL when its Ubuntu base leaves standard maintenance (see governance.md).

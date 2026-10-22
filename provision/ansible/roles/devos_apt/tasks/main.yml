@@ -8,20 +8,43 @@
       devos_apt_packages is empty. The devos CLI passes the profile's apt tools via
       --extra-vars. Do not run this role directly.
 
-- name: "Ensure core apt packages are {{ devos_apt_state }} (profile={{ devos_profile }})"
+# Best-effort version pinning: try the lockfile-pinned versions first; if the archive has
+# moved (a pinned version was superseded, e.g. by a security update), fall back to the
+# latest available and LOUDLY report the drift — never freeze a vulnerable package just to
+# satisfy a stale lock (strict reproducibility uses a snapshot archive; see docs).
+- name: "Ensure packages {{ devos_apt_state }} (profile={{ devos_profile }}) — pinned attempt"
   become: true
   ansible.builtin.apt:
     name: "{{ devos_apt_packages }}"
     state: "{{ devos_apt_state }}"
     update_cache: "{{ devos_apt_state == 'present' }}"
     cache_valid_time: 3600
-    # Never autoremove on removal: preserve shared deps and user data by default.
     autoremove: false
     purge: false
-  register: devos_apt_result
+  register: devos_apt_pinned
+  ignore_errors: true
+
+- name: "Reproducibility DRIFT — pinned version unavailable; installing latest"
+  when: devos_apt_pinned is failed
+  block:
+    - name: "DRIFT NOTICE"
+      ansible.builtin.debug:
+        msg: >-
+          REPRO_DRIFT profile '{{ devos_profile }}': a pinned version is no longer in the
+          archive ({{ devos_apt_pinned.msg | default('') }}). Installing latest and continuing.
+          Re-lock with `devos profile lock`, or use a snapshot archive for strict reproducibility.
+    - name: "Install latest (names only) as fallback"
+      become: true
+      ansible.builtin.apt:
+        name: "{{ devos_apt_packages | map('regex_replace', '=.*$', '') | list }}"
+        state: "{{ devos_apt_state }}"
+        update_cache: "{{ devos_apt_state == 'present' }}"
+        autoremove: false
+        purge: false
 
 - name: Report result
   ansible.builtin.debug:
     msg: >-
-      profile '{{ devos_profile }}': packages {{ devos_apt_state }} —
+      profile '{{ devos_profile }}': packages {{ devos_apt_state }}
+      ({{ 'latest (drift)' if (devos_apt_pinned is failed) else 'pinned' }}) —
       {{ devos_apt_packages | join(', ') }}

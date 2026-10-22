@@ -117,3 +117,10 @@ planning/audit work, not shipped software.
 - Added `desktop` profile (GNOME: ubuntu-desktop-minimal + gdm3) and a manual desktop-image
   build job (workflow_dispatch desktop=yes) producing a bootable GNOME desktop qcow2.
 - Local footprint cleanup (git gc); project uses ~223 KB — D: usage is unrelated user data.
+
+#### 2026-10-22 — Failure-injection tests + subsystem register + threat model
+- Added engine-level failure-injection suite (Alpha-1 #18 testable subset): bad/malformed
+  profiles, supply-chain fail-closed, missing prereqs, and 1000-iteration validator fuzzing.
+  Tests 52 -> 62, all passing. VM-level injection cases tracked in testing-strategy.
+- Added docs/subsystem-register.md (WU-0.2) — every §6 subsystem with honest status.
+- Added docs/threat-model.md (WU-0.3) — §11.0 threat categories with mitigations/evidence/residual.

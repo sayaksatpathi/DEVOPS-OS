@@ -47,6 +47,7 @@ export LIBGUESTFS_BACKEND_SETTINGS="${LIBGUESTFS_BACKEND_SETTINGS:-network=slirp
 virt-customize -a "$out/devos.qcow2" --network \
   --copy-in "$out/devos-src.tar.gz:/opt" \
   --run-command 'mkdir -p /opt/devos && tar xzf /opt/devos-src.tar.gz -C /opt/devos' \
+  --run-command 'rm -f /etc/resolv.conf; printf "nameserver 10.0.2.3\nnameserver 1.1.1.1\n" > /etc/resolv.conf' \
   --run-command 'apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y ansible-core python3' \
   --run-command "cd /opt/devos && for p in ${PROFILES//,/ }; do PYTHONPATH=packages/cli DEVOS_ROOT=/opt/devos python3 -m devos profile apply \$p --confirm; done" \
   --run-command "cd /opt/devos && for p in ${PROFILES//,/ }; do PYTHONPATH=packages/cli DEVOS_ROOT=/opt/devos python3 -m devos profile lock \$p || true; done" \

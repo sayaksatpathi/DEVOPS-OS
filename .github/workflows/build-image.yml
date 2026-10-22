@@ -34,13 +34,16 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            libguestfs-tools qemu-system-x86 qemu-utils ovmf cloud-image-utils
+            libguestfs-tools qemu-system-x86 qemu-utils ovmf cloud-image-utils passt
           # libguestfs on GitHub runners needs a world-readable kernel for its appliance.
           sudo chmod 0644 /boot/vmlinuz-* || true
 
       - name: Build DevOS cloud image
         env:
           LIBGUESTFS_BACKEND: direct
+          # Force the reliable slirp network backend: the newer 'passt' default fails on
+          # GitHub runners ("passt exited with status 1").
+          LIBGUESTFS_BACKEND_SETTINGS: network=slirp
         run: sudo -E bash image/build-cloud-image.sh "${{ github.event.inputs.profiles || 'core,containers' }}"
 
       - name: Boot test (QEMU / UEFI)

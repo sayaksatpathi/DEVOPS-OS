@@ -42,6 +42,8 @@ echo "== [4/6] customize image with profiles: ${PROFILES} =="
 cp "$out/$BASE_FILE" "$out/devos.qcow2"
 qemu-img resize "$out/devos.qcow2" +6G
 export LIBGUESTFS_BACKEND="${LIBGUESTFS_BACKEND:-direct}"
+# Prefer slirp networking: the newer 'passt' backend fails on some CI runners.
+export LIBGUESTFS_BACKEND_SETTINGS="${LIBGUESTFS_BACKEND_SETTINGS:-network=slirp}"
 virt-customize -a "$out/devos.qcow2" --network \
   --copy-in "$out/devos-src.tar.gz:/opt" \
   --run-command 'mkdir -p /opt/devos && tar xzf /opt/devos-src.tar.gz -C /opt/devos' \

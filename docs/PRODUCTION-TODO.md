@@ -4,7 +4,9 @@ Status: `done` · `automatable-wip` · `artifact-done-human-needed` · `blocked-
 "artifact-done-human-needed" = everything code can do is done; a human/hardware step remains.
 
 ## Automatable (code closes these)
-1. **OS-upgrade automated test** — `automatable-wip` — rewire to the proven run-vm helper.
+1. **OS-upgrade automated test** — `done` ✅ — applies `apt full-upgrade` in-guest (holds
+   cloud-init to avoid self-disruption), fixes half-config, confirms zero non-held packages
+   remain upgradable. Verified green (DEVOS_UPGRADE_OK).
 2. **Installer reboot→login** — `automatable-wip` — verifying in CI.
 3. **FDE unlock-at-boot** — `artifact-done-human-needed` — encrypted install built; unlock test needs passphrase injection (manual procedure documented).
 

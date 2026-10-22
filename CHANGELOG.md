@@ -162,3 +162,8 @@ planning/audit work, not shipped software.
 - Hole #7 containers: real `podman run` smoke test during provisioning.
 - Hole #8 SBOM completeness: binary tools (OpenTofu) + the devos engine now included in the SBOM.
 - 64 unit tests pass. (Holes #6 SB-chain, #9 desktop-render, #10 FDE-unlock remain partial.)
+
+#### 2026-10-23 — OS-upgrade test green (gap #4 closed)
+- Verified: in-guest `apt full-upgrade` applies and the system converges (DEVOS_UPGRADE_OK).
+- Fixes along the way: hold cloud-init/snapd (self-disruption), NEEDRESTART_MODE=a +
+  --force-confold (no prompts), judge success by convergence state not the noisy exit code.

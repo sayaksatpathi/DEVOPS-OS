@@ -1,0 +1,36 @@
+#cloud-config
+# Ubuntu autoinstall (subiquity) for a DevOS installer ISO. Performs an unattended
+# install of Ubuntu 26.04 to the target disk, then bakes in the selected DevOS profiles
+# via `devos profile apply` in the installed system. __PROFILES__ and __PWHASH__ are
+# filled in by image/build-installer-iso.sh.
+#
+# SECURITY: the initial account uses a build-time default password, but the last
+# late-command forces a password change on first login (chage -d 0), so no usable
+# shared default persists. Change it immediately; this is an experimental image.
+autoinstall:
+  version: 1
+  locale: en_US.UTF-8
+  keyboard:
+    layout: us
+  identity:
+    hostname: devos
+    username: devos
+    password: "__PWHASH__"
+  ssh:
+    install-server: true
+    allow-pw: true
+  packages:
+    - ansible-core
+    - python3
+  storage:
+    layout:
+      name: direct
+  late-commands:
+    - "echo DEVOS_INSTALL_START > /dev/ttyS0"
+    - "cp /cdrom/devos-src.tar.gz /target/opt/devos-src.tar.gz"
+    - "mkdir -p /target/opt/devos && tar xzf /target/opt/devos-src.tar.gz -C /target/opt/devos"
+    - "curtin in-target --target=/target -- bash -c 'cd /opt/devos && for p in __PROFILES__; do PYTHONPATH=packages/cli DEVOS_ROOT=/opt/devos python3 -m devos profile apply $p --confirm; done'"
+    - "curtin in-target --target=/target -- bash -c 'command -v git && command -v jq' > /dev/ttyS0 2>&1 || echo DEVOS_INSTALL_FAIL_tools > /dev/ttyS0"
+    - "curtin in-target --target=/target -- chage -d 0 devos"
+    - "echo DEVOS_INSTALL_OK > /dev/ttyS0"
+  shutdown: poweroff

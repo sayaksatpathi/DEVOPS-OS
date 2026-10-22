@@ -16,6 +16,11 @@ on:
         type: choice
         options: ["no", "yes"]
         default: "no"
+      iso:
+        description: "Also build the installer ISO (unattended install)?"
+        type: choice
+        options: ["no", "yes"]
+        default: "no"
   push:
     tags:
       - "v*"
@@ -186,5 +191,43 @@ jobs:
             image/out/devos.qcow2
             image/out/devos.qcow2.sha256
             image/out/serial.log
+          retention-days: 7
+          if-no-files-found: warn
+
+  build-installer-iso:
+    # Real installer ISO (unattended autoinstall). Manual only (workflow_dispatch iso=yes).
+    # CI installs the fast 'core' profile end-to-end so the boot-test can verify a full
+    # unattended install under UEFI; the ISO itself can bake any profiles.
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.iso == 'yes'
+    runs-on: ubuntu-latest
+    timeout-minutes: 110
+    steps:
+      - uses: actions/checkout@v4
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm.rules
+          sudo udevadm control --reload-rules || true
+          sudo udevadm trigger --name-match=kvm || true
+      - name: Install image build tooling
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xorriso qemu-system-x86 qemu-utils ovmf whois
+      - name: Build DevOS installer ISO (core)
+        run: sudo -E bash image/build-installer-iso.sh "core"
+      - name: Installer boot test (QEMU / UEFI, unattended install)
+        run: sudo -E bash image/boot-installer-test.sh
+      - name: Fix artifact ownership
+        if: always()
+        run: sudo chown -R "$USER" image/out || true
+      - name: Upload installer ISO
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: devos-installer-iso
+          path: |
+            image/out/devos-installer-amd64.iso
+            image/out/devos-installer-amd64.iso.sha256
+            image/out/installer-serial.log
           retention-days: 7
           if-no-files-found: warn

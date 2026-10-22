@@ -1,0 +1,21 @@
+{
+  "$comment": "DevOS profile schema v0.1.0 (provisional). Human + machine reference. The authoritative validator is packages/cli/devos/schema.py; this file documents the contract. JSON is used for the engine's own profile/lock format in this first slice (dependency-free); a YAML loader is a tracked later option — see DECISIONS.md O-11.",
+  "schemaVersion": "0.1.0",
+  "title": "DevOS Profile",
+  "description": "Declarative description of a set of DevOps capabilities a workstation should have. A profile states desired capabilities and their approved sources; a lockfile (locks/<name>.lock.json) records the resolved, verified inputs.",
+  "required": ["schemaVersion", "name", "description", "tools"],
+  "additionalProperties": false,
+  "fields": {
+    "schemaVersion": "Supported: 0.1.0. Exact string match.",
+    "name": "kebab-case profile id, e.g. 'core'.",
+    "description": "One-line human description.",
+    "tools": "Non-empty array of tool objects.",
+    "tool.name": "Required. Package/tool identifier.",
+    "tool.capability": "Optional. What the tool provides, e.g. 'vcs'.",
+    "tool.source": "Required. One of: apt | snap | binary.",
+    "tool.verification": "Required when source == 'binary'. Must carry {method, checksum}. method in {upstream-signature, attestation}. A checksum copied from the same unauthenticated download page (TOFU) is NOT accepted; if no upstream signature exists, set method='fallback' AND fallbackApproved=true AND residualRisk='<text>' (master prompt §9.1)."
+  },
+  "supportedSchemaVersions": ["0.1.0"],
+  "allowedSources": ["apt", "snap", "binary"],
+  "allowedVerificationMethods": ["upstream-signature", "attestation", "fallback"]
+}

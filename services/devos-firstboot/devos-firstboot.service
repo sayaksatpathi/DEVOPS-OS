@@ -1,0 +1,21 @@
+# DevOS first-boot unit (SCAFFOLD — not yet wired into an image).
+#
+# Runs once on the first boot of a freshly installed DevOS machine to (a) regenerate
+# per-machine identity so no two installs share machine-id or SSH host keys, and
+# (b) optionally apply selected profiles (Path B in docs/build-and-release.md).
+#
+# It must be idempotent and self-disabling. The referenced script
+# (services/devos-firstboot/devos-firstboot.sh) is planned, not yet implemented.
+[Unit]
+Description=DevOS first-boot setup (machine identity + optional provisioning)
+After=network-online.target
+Wants=network-online.target
+ConditionPathExists=!/var/lib/devos/firstboot-done
+
+[Service]
+Type=oneshot
+ExecStart=/usr/lib/devos/devos-firstboot.sh
+RemainAfterExit=no
+
+[Install]
+WantedBy=multi-user.target

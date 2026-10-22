@@ -1,0 +1,5 @@
+---
+# Packages to install for the core profile. DevOS passes the actual list derived
+# from profiles/definitions/core.json via --extra-vars, so this default stays empty
+# and the role asserts it was provided (single source of truth is the profile).
+devos_core_apt_packages: []

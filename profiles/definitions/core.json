@@ -1,0 +1,12 @@
+{
+  "schemaVersion": "0.1.0",
+  "name": "core",
+  "description": "Essential developer CLI: version control, SSH client, HTTP + JSON tooling, and core shell/system diagnostic utilities.",
+  "tools": [
+    { "name": "git",  "capability": "version-control", "source": "apt" },
+    { "name": "openssh-client", "capability": "ssh-client", "source": "apt" },
+    { "name": "curl", "capability": "http-client", "source": "apt" },
+    { "name": "jq",   "capability": "json-processor", "source": "apt" },
+    { "name": "ca-certificates", "capability": "tls-trust", "source": "apt" }
+  ]
+}

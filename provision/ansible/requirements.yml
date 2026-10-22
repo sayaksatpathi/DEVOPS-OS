@@ -1,0 +1,13 @@
+# Ansible collection/role requirements for DevOS provisioning.
+#
+# Pinning policy (master prompt §9.1): ansible-core is pinned separately at install
+# time (e.g. `pipx install 'ansible-core==2.19.*'` — confirm the exact supported
+# version on the pinned base image before freezing). Every external collection added
+# here MUST carry an exact version and be recorded, with artifact digest + provenance
+# + verification status, in locks/ansible-collections.lock.yaml (open decision O-12).
+#
+# The 'core' profile uses only modules from ansible.builtin, which ships with
+# ansible-core, so no external collections are required yet. This empty list is
+# honest, not a stub: later profiles (containers/infra/kubernetes) will add pinned
+# entries such as community.general here.
+collections: []

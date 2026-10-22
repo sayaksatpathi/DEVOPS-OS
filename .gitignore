@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Build / image artifacts (never commit built images or ISOs)
+image/out/
+*.iso
+*.img
+*.qcow2
+build/
+dist/
+
+# Ansible
+*.retry
+
+# Secrets — never commit (defense in depth; none should exist)
+*.pem
+*.key
+id_rsa*
+*.p12
+.env
+secrets.*
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

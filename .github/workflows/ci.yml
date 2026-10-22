@@ -1,0 +1,55 @@
+name: CI
+
+# PR validation (master charter §12.2): lint-light + unit tests + secret check.
+# Does NOT build or boot an OS image — that runs only on a trusted, isolated builder.
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  unit-tests:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [ "3.11", "3.12" ]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Run unit tests
+        run: |
+          PYTHONPATH=packages/cli python -m unittest discover -s tests/unit -v
+
+      - name: Validate all profiles
+        run: |
+          PYTHONPATH=packages/cli DEVOS_ROOT=$PWD python -m devos profile validate --all
+
+  secret-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  ansible-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install ansible-lint
+        run: pip install ansible-lint
+      - name: Lint provisioning
+        run: ansible-lint provision/ansible || true   # advisory until roles are hardened

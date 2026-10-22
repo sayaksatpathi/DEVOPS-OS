@@ -1,0 +1,15 @@
+#cloud-config
+# PROVISION seed: on first boot of the base cloud image, install ansible-core and run
+# `devos profile apply` for the selected profiles (baking the tools into the disk),
+# then lock versions, write a marker to the serial console, and power off. Network
+# (DNS) works here because qemu user-mode networking provides DHCP + a DNS forwarder.
+# __PROFILES__ is replaced by the build script with space-separated profile names.
+runcmd:
+  - [ bash, -c, "set -x; apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y ansible-core python3 > /dev/ttyS0 2>&1 || { echo DEVOS_PROVISION_FAIL_apt > /dev/ttyS0; }" ]
+  - [ bash, -c, "cd /opt/devos && for p in __PROFILES__; do PYTHONPATH=packages/cli DEVOS_ROOT=/opt/devos python3 -m devos profile apply $p --confirm > /dev/ttyS0 2>&1 || echo DEVOS_PROVISION_FAIL_apply_$p > /dev/ttyS0; done" ]
+  - [ bash, -c, "cd /opt/devos && for p in __PROFILES__; do PYTHONPATH=packages/cli DEVOS_ROOT=/opt/devos python3 -m devos profile lock $p > /dev/ttyS0 2>&1 || true; done" ]
+  - [ bash, -c, "mkdir -p /var/lib/devos && date -u +%FT%TZ > /var/lib/devos/provisioned && echo DEVOS_PROVISION_OK > /dev/ttyS0" ]
+power_state:
+  mode: poweroff
+  timeout: 30
+  condition: true

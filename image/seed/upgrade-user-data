@@ -3,7 +3,11 @@
 # running image, then reboot. Proves the upgrade path actually applies and the system
 # comes back — not just a simulation.
 runcmd:
-  - [ bash, -c, "export DEBIAN_FRONTEND=noninteractive; apt-get update > /dev/ttyS0 2>&1 && apt-get -y full-upgrade > /dev/ttyS0 2>&1 && echo DEVOS_UPGRADE_OK > /dev/ttyS0 || echo DEVOS_UPGRADE_FAIL > /dev/ttyS0" ]
+  # Hold cloud-init/snapd so the upgrade can't restart the very process driving it
+  # (upgrading cloud-init from inside a cloud-init runcmd kills the run — a known gotcha).
+  - [ bash, -c, "apt-mark hold cloud-init cloud-init-base snapd > /dev/ttyS0 2>&1 || true" ]
+  - [ bash, -c, "export DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a; apt-get update > /dev/ttyS0 2>&1 && apt-get -y -o Dpkg::Options::=--force-confold full-upgrade > /dev/ttyS0 2>&1 && echo DEVOS_UPGRADE_OK > /dev/ttyS0 || echo DEVOS_UPGRADE_FAIL > /dev/ttyS0" ]
+  - [ bash, -c, "apt-mark unhold cloud-init cloud-init-base snapd > /dev/ttyS0 2>&1 || true" ]
 power_state:
   mode: reboot
   timeout: 30

@@ -10,7 +10,10 @@ img="$out/devos.qcow2"
 [ -f "$img" ] || { echo "ERROR: image not found: $img (run build-cloud-image.sh first)"; exit 1; }
 
 cp image/seed/user-data "$out/verify-user-data"
-cp image/seed/meta-data "$out/verify-meta-data"
+# Unique instance-id per boot so cloud-init re-runs runcmd (and re-emits the marker)
+# when the same image is booted several times (normal / Secure Boot / TPM).
+printf 'instance-id: devos-verify-%s\nlocal-hostname: devos\n' \
+  "$(date +%s)-$$-sb${SECBOOT:-0}-tpm${TPM:-0}" > "$out/verify-meta-data"
 cloud-localds "$out/verify-seed.iso" "$out/verify-user-data" "$out/verify-meta-data"
 
 marker="${MARKER:-DEVOS_BOOT_OK_PROFILE_CORE}"

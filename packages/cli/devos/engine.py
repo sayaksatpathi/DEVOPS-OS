@@ -89,6 +89,12 @@ def ansible_dir(root: Path) -> Path:
     return root / "provision" / "ansible"
 
 
+def binary_tools(profile: dict) -> list[dict]:
+    """Return the binary-sourced tool dicts in a profile, in declared order."""
+    return [t for t in profile.get("tools", [])
+            if isinstance(t, dict) and t.get("source") == "binary"]
+
+
 def parse_dpkg_query(output: str) -> dict[str, str]:
     """Parse `dpkg-query -W pkg...` output (``name\\tversion`` per line).
 

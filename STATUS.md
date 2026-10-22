@@ -64,9 +64,8 @@ sudo-rs `become` characterized (needs passwordless sudo; interactive prompt mis-
 **Not yet done:** `ansible-lint`/Molecule; narrow (non-NOPASSWD) elevation model; pinned-ISO digest.
 
 **Still planned** (honest gaps, not stubbed): `profile upgrade` (version-bump preview);
-**binary-tool install** in `apply` (the `verify.py` gate exists and is tested, but download +
-signature verification + install for `source: binary` tools like OpenTofu/kubectl is not wired
-yet, so apply currently skips binary tools and says so); `ansible-lint`/Molecule hardening.
+`ansible-lint`/Molecule hardening; signature-chain (GPG/cosign) verification at install time
+(engine pins checksums from signed SHA256SUMS and enforces the policy gate today).
 
 Run it: `PYTHONPATH=packages/cli DEVOS_ROOT=$PWD python -m devos profile validate --all`
 Test it: `PYTHONPATH=packages/cli python -m unittest discover -s tests/unit`

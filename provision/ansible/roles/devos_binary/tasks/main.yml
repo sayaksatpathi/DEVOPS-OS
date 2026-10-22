@@ -1,0 +1,17 @@
+---
+- name: Ensure archive tools are present (for zip/tar extraction)
+  become: true
+  ansible.builtin.apt:
+    name:
+      - unzip
+      - tar
+    state: present
+    update_cache: false
+  when: devos_binary_specs | length > 0
+
+- name: Install each verified binary tool
+  ansible.builtin.include_tasks: one.yml
+  loop: "{{ devos_binary_specs }}"
+  loop_control:
+    loop_var: spec
+    label: "{{ spec.name }} {{ spec.version | default('') }}"

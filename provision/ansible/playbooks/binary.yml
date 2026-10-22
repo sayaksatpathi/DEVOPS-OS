@@ -1,0 +1,8 @@
+---
+# Install verified binary tools for a DevOS profile. Invoked by the devos CLI, which
+# passes only tools that passed the §9.1 verification policy gate, as devos_binary_specs.
+- name: "DevOS binary tools {{ devos_profile | default('unknown') }}"
+  hosts: all
+  gather_facts: true
+  roles:
+    - devos_binary

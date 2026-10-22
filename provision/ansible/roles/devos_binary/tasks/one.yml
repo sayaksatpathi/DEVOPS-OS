@@ -1,0 +1,45 @@
+---
+# Install one verified binary tool. Ansible re-verifies the checksum on download
+# (defense in depth on top of the engine's policy gate).
+- name: "Download {{ spec.name }} (checksum-verified)"
+  become: true
+  ansible.builtin.get_url:
+    url: "{{ spec.url }}"
+    dest: "/tmp/devos-dl-{{ spec.name }}"
+    checksum: "{{ spec.checksum }}"
+    mode: "0644"
+    force: true
+
+- name: "Raw binary: install {{ spec.name }} to /usr/local/bin"
+  become: true
+  ansible.builtin.copy:
+    src: "/tmp/devos-dl-{{ spec.name }}"
+    dest: "/usr/local/bin/{{ spec.binOut }}"
+    mode: "0755"
+    remote_src: true
+  when: spec.kind == "raw"
+
+- name: "Archive: make extraction dir for {{ spec.name }}"
+  become: true
+  ansible.builtin.file:
+    path: "/tmp/devos-x-{{ spec.name }}"
+    state: directory
+    mode: "0755"
+  when: spec.kind in ["zip", "targz"]
+
+- name: "Archive: extract {{ spec.name }}"
+  become: true
+  ansible.builtin.unarchive:
+    src: "/tmp/devos-dl-{{ spec.name }}"
+    dest: "/tmp/devos-x-{{ spec.name }}"
+    remote_src: true
+  when: spec.kind in ["zip", "targz"]
+
+- name: "Archive: install {{ spec.binOut }} to /usr/local/bin"
+  become: true
+  ansible.builtin.copy:
+    src: "/tmp/devos-x-{{ spec.name }}/{{ spec.binIn }}"
+    dest: "/usr/local/bin/{{ spec.binOut }}"
+    mode: "0755"
+    remote_src: true
+  when: spec.kind in ["zip", "targz"]

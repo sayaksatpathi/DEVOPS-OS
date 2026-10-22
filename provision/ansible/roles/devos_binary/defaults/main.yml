@@ -1,0 +1,5 @@
+---
+# Verified binary tools to install. The devos CLI passes only tools that PASSED the
+# §9.1 verification policy gate (signature/attestation or an approved fallback), each as:
+# { name, url, checksum ("sha256:..."), kind (raw|zip|targz), binIn, binOut }.
+devos_binary_specs: []

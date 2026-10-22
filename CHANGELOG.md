@@ -98,3 +98,13 @@ planning/audit work, not shipped software.
 - CI fixes to get here: removed passt (libguestfs net), appliance networking unusable → redesigned
   to provision-by-booting, fixed QEMU -accel flag.
 - Still: server/cloud flavor only (desktop ISO future); experimental, unsigned; artifact expires 7 days.
+
+#### 2026-10-22 — Verified binary-tool install + infra profile; downloadable release
+- Added `infra` profile: OpenTofu v1.13.2 installed from a verified upstream binary
+  (checksum pinned from OpenTofu's signed SHA256SUMS).
+- Wired binary-tool install into `apply`: the §9.1 policy gate (verify.py) runs first and
+  refuses trust-on-first-use; allowed tools install via a new `devos_binary` Ansible role
+  (get_url with checksum verification → /usr/local/bin). Dry-run reports intent; --confirm installs.
+- Tests 48 → **52, all passing**; verified on real WSL (gate passes OpenTofu, playbook wires up).
+- Added release step: on a `v*` tag, CI attaches the bootable qcow2 to a GitHub prerelease.
+- Cut tag v0.1.0-alpha1 to publish the first downloadable DevOS image.

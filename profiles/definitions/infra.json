@@ -1,0 +1,20 @@
+{
+  "schemaVersion": "0.1.0",
+  "name": "infra",
+  "description": "Infrastructure-as-code tooling: OpenTofu, installed from a verified upstream binary.",
+  "tools": [
+    {
+      "name": "opentofu",
+      "capability": "iac",
+      "source": "binary",
+      "version": "1.13.2",
+      "url": "https://github.com/opentofu/opentofu/releases/download/v1.13.2/tofu_1.13.2_linux_amd64.zip",
+      "install": { "kind": "zip", "binIn": "tofu", "binOut": "tofu" },
+      "verification": {
+        "method": "upstream-signature",
+        "checksum": "sha256:723bebb0df8411daff1e5fc3862e28ff5581fe5634087f4c29a9aa41d78208b5",
+        "note": "checksum taken from OpenTofu's GPG/cosign-signed SHA256SUMS for v1.13.2 linux_amd64"
+      }
+    }
+  ]
+}

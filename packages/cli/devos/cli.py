@@ -26,6 +26,7 @@ from pathlib import Path
 from . import __version__
 from . import engine
 from . import schema
+from . import verify
 
 EXIT_OK = 0
 EXIT_VALIDATION = 1
@@ -214,12 +215,53 @@ def _load_valid_profile(root: Path, name: str, action: str):
     return profile, None
 
 
-def _warn_binary_tools(profile: dict) -> None:
-    binary = [t.get("name") for t in profile.get("tools", [])
-              if isinstance(t, dict) and t.get("source") == "binary"]
-    if binary:
-        print(f"note: binary-sourced tools are not handled by this apt path and were "
-              f"skipped (pending verified-download support): {', '.join(binary)}")
+def gate_binary_tools(profile: dict) -> tuple[list[dict], list[tuple[str, str]]]:
+    """Split binary tools into (allowed specs, [(name, reason) skipped]).
+
+    A tool is allowed only if its verification block passes the §9.1 policy gate
+    (signature/attestation, or an explicitly approved fallback). Allowed tools are
+    turned into install specs for the devos_binary role.
+    """
+    allowed: list[dict] = []
+    skipped: list[tuple[str, str]] = []
+    for t in engine.binary_tools(profile):
+        name = t.get("name", "?")
+        ok, reason = verify.install_allowed(t.get("verification"))
+        if not ok:
+            skipped.append((name, reason))
+            continue
+        inst = t.get("install", {})
+        allowed.append({
+            "name": name,
+            "version": t.get("version", ""),
+            "url": t.get("url", ""),
+            "checksum": t.get("verification", {}).get("checksum", ""),
+            "kind": inst.get("kind", "raw"),
+            "binIn": inst.get("binIn", name),
+            "binOut": inst.get("binOut", name),
+        })
+    return allowed, skipped
+
+
+def build_binary_command(
+    root: Path, profile_name: str, specs: list[dict], *, check: bool,
+    ask_become_pass: bool = False,
+) -> tuple[list[str], Path, dict[str, str]]:
+    """Build the (argv, cwd, env) for the verified-binary install playbook. Pure."""
+    extra_vars = json.dumps({"devos_profile": profile_name, "devos_binary_specs": specs})
+    cmd = ["ansible-playbook", "playbooks/binary.yml",
+           "-i", "localhost,", "-c", "local", "-e", extra_vars]
+    if check:
+        cmd.append("--check")
+    if ask_become_pass:
+        cmd.append("--ask-become-pass")
+    ansible_dir = engine.ansible_dir(root)
+    env = {
+        "ANSIBLE_ROLES_PATH": str(ansible_dir / "roles"),
+        "ANSIBLE_HOST_KEY_CHECKING": "False",
+        "ANSIBLE_RETRY_FILES_ENABLED": "False",
+    }
+    return cmd, ansible_dir, env
 
 
 def cmd_profile_apply(args: argparse.Namespace) -> int:
@@ -227,12 +269,43 @@ def cmd_profile_apply(args: argparse.Namespace) -> int:
     profile, err = _load_valid_profile(root, args.name, "apply")
     if err is not None:
         return err
-    _warn_binary_tools(profile)
-    return _run_profile_ansible(
+
+    # 1) apt-sourced tools
+    rc = _run_profile_ansible(
         root, args.name, engine.apt_packages(profile),
         state="present", check=not args.confirm,
         ask_become_pass=args.ask_become_pass, verb="apply",
-    )
+    ) if engine.apt_packages(profile) else EXIT_OK
+    if rc not in (EXIT_OK,):
+        return rc
+
+    # 2) verified binary tools (gate first — refuse trust-on-first-use)
+    allowed, skipped = gate_binary_tools(profile)
+    for name, reason in skipped:
+        print(f"skip binary '{name}': {reason}")
+    if not allowed:
+        return rc
+    names = ', '.join(s['name'] + ' ' + s['version'] for s in allowed)
+    if not args.confirm:
+        # Download+extract can't be meaningfully simulated in Ansible check mode; report intent.
+        print(f"binary tools (dry-run, verified, would install): {names}")
+        print("  run with --confirm to download (checksum-verified) and install to /usr/local/bin")
+        return rc
+    print(f"binary tools (install, verified): {names}")
+    cmd, cwd, env = build_binary_command(
+        root, args.name, allowed, check=False, ask_become_pass=args.ask_become_pass)
+    print(f"$ (cd {cwd}) {' '.join(cmd[:6])} …")
+    if shutil.which("ansible-playbook") is None:
+        print("error: ansible-playbook not found (install ansible-core on the target).",
+              file=sys.stderr)
+        return EXIT_ENGINE
+    import os
+    try:
+        brc = subprocess.call(cmd, cwd=str(cwd), env={**os.environ, **env})
+    except OSError as e:
+        print(f"error: failed to run ansible-playbook: {e}", file=sys.stderr)
+        return EXIT_ENGINE
+    return EXIT_OK if brc == 0 else EXIT_PROVISION
 
 
 def cmd_profile_remove(args: argparse.Namespace) -> int:

@@ -47,7 +47,14 @@ def install_allowed(verification: dict) -> tuple[bool, str]:
     method = verification.get("method")
     if not verification.get("checksum"):
         return False, "no checksum recorded"
-    if method in ("upstream-signature", "attestation"):
+    if method == "upstream-signature":
+        # A real signature requires the signature material to actually verify (not a label).
+        need = ("sumsUrl", "sigUrl", "certUrl", "certIdentityRegexp", "certOidcIssuer")
+        missing = [k for k in need if not verification.get(k)]
+        if missing:
+            return False, f"upstream-signature missing material: {', '.join(missing)} (would be TOFU)"
+        return True, "upstream-signature (cosign-verifiable) + checksum"
+    if method == "attestation":
         return True, f"{method} + checksum"
     if method == "fallback":
         if verification.get("fallbackApproved") is True and verification.get("residualRisk"):

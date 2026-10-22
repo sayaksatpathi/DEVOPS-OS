@@ -231,14 +231,22 @@ def gate_binary_tools(profile: dict) -> tuple[list[dict], list[tuple[str, str]]]
             skipped.append((name, reason))
             continue
         inst = t.get("install", {})
+        ver = t.get("verification", {})
         allowed.append({
             "name": name,
             "version": t.get("version", ""),
             "url": t.get("url", ""),
-            "checksum": t.get("verification", {}).get("checksum", ""),
+            "checksum": ver.get("checksum", ""),
             "kind": inst.get("kind", "raw"),
             "binIn": inst.get("binIn", name),
             "binOut": inst.get("binOut", name),
+            # cosign signature-verification material (real verification, not a label)
+            "sumsUrl": ver.get("sumsUrl", ""),
+            "sigUrl": ver.get("sigUrl", ""),
+            "certUrl": ver.get("certUrl", ""),
+            "certIdentityRegexp": ver.get("certIdentityRegexp", ""),
+            "certOidcIssuer": ver.get("certOidcIssuer", ""),
+            "sumEntry": ver.get("sumEntry", ""),
         })
     return allowed, skipped
 
@@ -270,12 +278,15 @@ def cmd_profile_apply(args: argparse.Namespace) -> int:
     if err is not None:
         return err
 
-    # 1) apt-sourced tools
+    # 1) apt-sourced tools — pin to the lockfile when available (reproducible).
+    apt_list, pinned = engine.apt_packages_enforced(root, args.name, profile)
+    if apt_list:
+        print(f"apt version pinning: {'ENFORCED from lockfile' if pinned else 'NOT pinned (no lockfile; installs latest)'}")
     rc = _run_profile_ansible(
-        root, args.name, engine.apt_packages(profile),
+        root, args.name, apt_list,
         state="present", check=not args.confirm,
         ask_become_pass=args.ask_become_pass, verb="apply",
-    ) if engine.apt_packages(profile) else EXIT_OK
+    ) if apt_list else EXIT_OK
     if rc not in (EXIT_OK,):
         return rc
 

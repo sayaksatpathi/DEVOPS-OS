@@ -99,9 +99,10 @@ jobs:
       - name: Generate SBOM from image package inventory
         run: |
           sudo chown -R "$USER" image/out 2>/dev/null || true
-          python3 - image/out/packages.tsv image/out/devos.sbom.cdx.json "${GITHUB_REF_NAME:-dev}" <<'PY'
+          python3 - image/out/packages.tsv image/out/devos.sbom.cdx.json "${GITHUB_REF_NAME:-dev}" image/out/extra-components.tsv <<'PY'
           import json, sys
           tsv, out, ver = sys.argv[1], sys.argv[2], sys.argv[3]
+          extra = sys.argv[4] if len(sys.argv) > 4 else None
           comps = []
           try:
               for line in open(tsv, encoding="utf-8", errors="replace"):
@@ -111,6 +112,16 @@ jobs:
                   comps.append({"type": "library", "name": name, "version": version,
                                 "purl": f"pkg:deb/ubuntu/{name}@{version}?distro=ubuntu-26.04"})
           except FileNotFoundError:
+              pass
+          # SBOM completeness: binary tools (OpenTofu, kubectl…) + the devos engine itself.
+          try:
+              for line in open(extra, encoding="utf-8", errors="replace"):
+                  line = line.rstrip("\n")
+                  if "\t" not in line: continue
+                  name, version = line.split("\t", 1)
+                  comps.append({"type": "application", "name": name, "version": version,
+                                "purl": f"pkg:generic/{name}@{version}"})
+          except (FileNotFoundError, TypeError):
               pass
           json.dump({"bomFormat": "CycloneDX", "specVersion": "1.5",
                      "metadata": {"component": {"type": "operating-system",

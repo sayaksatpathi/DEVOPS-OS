@@ -149,3 +149,16 @@ planning/audit work, not shipped software.
 - #4 OS upgrade: upgrade-test.sh applies apt full-upgrade in-guest and verifies reboot->login.
 - #5 CVE: reliable Trivy scan of the generated CycloneDX SBOM (no flaky qcow2 mount); SBOM now
   generated on every build and attached to releases.
+
+#### 2026-10-23 — Fix critical holes from the OS-researcher audit
+- Hole #1 lockfile enforcement: `apply` installs pinned name=version from the lockfile when present.
+- Hole #2 REAL signature verification: devos_binary cosign-verifies upstream SHA256SUMS against the
+  project release identity, derives the checksum from the VERIFIED sums; gate now rejects a bare
+  "upstream-signature" label lacking sig material (was TOFU).
+- Holes #4/#5 hardening+telemetry: devos_hardening role (UFW default-deny+OpenSSH, sysctl hardening,
+  SSH key-only/no-root, apport/whoopsie masked, motd-news/apt-news/ubuntu-report off) applied to
+  every image and in the installer.
+- Hole #3 installer: SSH password auth disabled (key-only), installed account password expired.
+- Hole #7 containers: real `podman run` smoke test during provisioning.
+- Hole #8 SBOM completeness: binary tools (OpenTofu) + the devos engine now included in the SBOM.
+- 64 unit tests pass. (Holes #6 SB-chain, #9 desktop-render, #10 FDE-unlock remain partial.)

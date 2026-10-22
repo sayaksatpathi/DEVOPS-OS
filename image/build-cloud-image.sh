@@ -65,6 +65,18 @@ grep -q "DEVOS_IDEMPOTENT_OK" "$out/serial.log" \
 # Package SBOM (gap #10): copy the installed-package inventory out of the image (offline).
 virt-copy-out -a "$out/devos.qcow2" /var/lib/devos/packages.tsv "$out/" 2>/dev/null \
   && echo "SBOM package inventory extracted" || echo "warn: SBOM copy-out failed"
+# SBOM completeness: binary tools + the devos engine (not just apt packages).
+virt-copy-out -a "$out/devos.qcow2" /var/lib/devos/extra-components.tsv "$out/" 2>/dev/null \
+  && echo "SBOM extra components extracted" || echo "warn: extra-components copy-out failed"
+
+# Hardening (hole #4/#5) must have applied.
+if grep -q "DEVOS_HARDEN_FAIL" "$out/serial.log"; then
+  echo "ERROR: image hardening failed"; exit 1
+fi
+grep -q "DEVOS_HARDENED_OK" "$out/serial.log" && echo "image hardening: OK" || echo "warn: hardening marker not seen"
+# Container smoke test (hole #7) — soft (needs registry network during provisioning).
+grep -q "DEVOS_CONTAINER_RUN_OK" "$out/serial.log" && echo "container run: OK" \
+  || echo "note: container-run marker not seen (profile may lack podman, or registry unreachable)"
 
 echo "== [5/6] image hygiene (clear cloud-init state, reset machine identity) =="
 virt-customize -a "$out/devos.qcow2" --run-command 'cloud-init clean --logs || true'

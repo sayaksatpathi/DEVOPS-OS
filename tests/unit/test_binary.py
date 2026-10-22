@@ -16,7 +16,9 @@ class TestGateBinaryTools(unittest.TestCase):
                 {"name": "opentofu", "source": "binary", "version": "1.13.2",
                  "url": "https://example/tofu.zip",
                  "install": {"kind": "zip", "binIn": "tofu", "binOut": "tofu"},
-                 "verification": {"method": "upstream-signature", "checksum": "sha256:abc"}},
+                 "verification": {"method": "upstream-signature", "checksum": "sha256:abc",
+                                  "sumsUrl": "u", "sigUrl": "u", "certUrl": "u",
+                                  "certIdentityRegexp": "r", "certOidcIssuer": "i"}},
             ]
         }
         allowed, skipped = cli.gate_binary_tools(profile)

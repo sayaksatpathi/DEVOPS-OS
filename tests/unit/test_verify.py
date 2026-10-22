@@ -30,9 +30,19 @@ class TestChecksum(unittest.TestCase):
 
 
 class TestInstallPolicy(unittest.TestCase):
-    def test_signature_plus_checksum_allowed(self):
-        ok, _ = verify.install_allowed(
+    def test_signature_label_without_material_is_refused(self):
+        # A bare 'upstream-signature' label with no signature material is TOFU — refused.
+        ok, reason = verify.install_allowed(
             {"method": "upstream-signature", "checksum": "sha256:abc"})
+        self.assertFalse(ok)
+        self.assertIn("missing material", reason)
+
+    def test_signature_with_full_material_allowed(self):
+        ok, _ = verify.install_allowed({
+            "method": "upstream-signature", "checksum": "sha256:abc",
+            "sumsUrl": "u", "sigUrl": "u", "certUrl": "u",
+            "certIdentityRegexp": "r", "certOidcIssuer": "i",
+        })
         self.assertTrue(ok)
 
     def test_checksum_only_without_method_rejected(self):

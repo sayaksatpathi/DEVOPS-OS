@@ -85,6 +85,31 @@ def apt_packages(profile: dict) -> list[str]:
     return out
 
 
+def apt_packages_enforced(root: "Path", name: str, profile: dict) -> tuple[list[str], bool]:
+    """Return the apt install list, PINNED to the lockfile's versions when available.
+
+    Returns (packages, pinned). When a lockfile exists and has resolved versions for every
+    apt tool, each entry is "name=version" (reproducible). Otherwise falls back to bare names
+    and pinned=False — apply then reports that it installed latest, not locked, versions.
+    """
+    names = apt_packages(profile)
+    try:
+        lock = load_lockfile(root, name)
+    except EngineError:
+        lock = None
+    if not lock:
+        return names, False
+    versions: dict[str, str] = {}
+    for t in lock.get("tools", []):
+        if isinstance(t, dict) and t.get("source") == "apt":
+            v = t.get("version")
+            if isinstance(v, str) and v and v not in ("PLACEHOLDER", "UNRESOLVED"):
+                versions[t.get("name")] = v
+    if names and all(n in versions for n in names):
+        return [f"{n}={versions[n]}" for n in names], True
+    return names, False
+
+
 def ansible_dir(root: Path) -> Path:
     return root / "provision" / "ansible"
 

@@ -18,19 +18,23 @@ autoinstall:
     password: "__PWHASH__"
   ssh:
     install-server: true
-    allow-pw: true
+    allow-pw: false       # key-only SSH; no password login over the network
   packages:
     - ansible-core
     - python3
   storage:
     layout:
-      name: direct
+      name: direct        # NOTE: whole-disk wipe of the target. Experimental installer —
+                          # a guided/partitioning flow is tracked for Beta (installer UX).
   late-commands:
     - "echo DEVOS_INSTALL_START > /dev/ttyS0"
+    - "curtin in-target --target=/target -- bash -c 'cd /opt 2>/dev/null; true'"
     - "cp /cdrom/devos-src.tar.gz /target/opt/devos-src.tar.gz"
     - "mkdir -p /target/opt/devos && tar xzf /target/opt/devos-src.tar.gz -C /target/opt/devos"
     - "curtin in-target --target=/target -- bash -c 'cd /opt/devos && for p in __PROFILES__; do PYTHONPATH=packages/cli DEVOS_ROOT=/opt/devos python3 -m devos profile apply $p --confirm; done'"
+    - "curtin in-target --target=/target -- bash -c 'cd /opt/devos && ANSIBLE_ROLES_PATH=/opt/devos/provision/ansible/roles ansible-playbook -i localhost, -c local provision/ansible/playbooks/harden.yml'"
     - "curtin in-target --target=/target -- bash -c 'command -v git && command -v jq' > /dev/ttyS0 2>&1 || echo DEVOS_INSTALL_FAIL_tools > /dev/ttyS0"
     - "curtin in-target --target=/target -- chage -d 0 devos"
+    - "curtin in-target --target=/target -- passwd -e devos"
     - "echo DEVOS_INSTALL_OK > /dev/ttyS0"
   shutdown: poweroff

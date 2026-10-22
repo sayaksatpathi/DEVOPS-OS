@@ -1,0 +1,94 @@
+---
+# Baseline image hardening (hole #4) + telemetry-off (hole #5). Dependency-free (builtin only).
+- name: Install UFW
+  become: true
+  ansible.builtin.apt: { name: ufw, state: present, update_cache: false }
+
+- name: UFW — default deny incoming / allow outgoing / allow OpenSSH, then enable
+  become: true
+  ansible.builtin.shell: |
+    set -e
+    ufw --force default deny incoming
+    ufw --force default allow outgoing
+    ufw allow OpenSSH
+    ufw --force enable
+    ufw status verbose
+  args: { executable: /bin/bash }
+  register: devos_ufw
+  changed_when: "'Status: active' not in devos_ufw.stdout or 'deny (incoming)' in devos_ufw.stdout"
+
+- name: Sysctl hardening drop-in
+  become: true
+  ansible.builtin.copy:
+    dest: /etc/sysctl.d/99-devos-hardening.conf
+    mode: "0644"
+    content: |
+      kernel.kptr_restrict=2
+      kernel.dmesg_restrict=1
+      kernel.yama.ptrace_scope=1
+      net.ipv4.conf.all.rp_filter=1
+      net.ipv4.conf.all.accept_redirects=0
+      net.ipv4.conf.default.accept_redirects=0
+      net.ipv6.conf.all.accept_redirects=0
+      net.ipv4.conf.all.accept_source_route=0
+      net.ipv4.tcp_syncookies=1
+      fs.protected_hardlinks=1
+      fs.protected_symlinks=1
+      fs.protected_fifos=2
+      fs.protected_regular=2
+  register: devos_sysctl
+
+- name: Apply sysctl
+  become: true
+  ansible.builtin.command: sysctl --system
+  changed_when: false
+  when: devos_sysctl.changed
+
+- name: SSH hardening drop-in (no root login, key-only auth)
+  become: true
+  ansible.builtin.copy:
+    dest: /etc/ssh/sshd_config.d/99-devos-hardening.conf
+    mode: "0644"
+    content: |
+      PermitRootLogin no
+      PasswordAuthentication no
+      KbdInteractiveAuthentication no
+      X11Forwarding no
+      MaxAuthTries 3
+      LoginGraceTime 30
+  register: devos_sshd
+
+- name: Restart ssh if present
+  become: true
+  ansible.builtin.systemd: { name: ssh, state: restarted }
+  failed_when: false
+  when: devos_sshd.changed
+
+- name: Disable crash/telemetry reporting services
+  become: true
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    enabled: false
+    state: stopped
+    masked: true
+  loop:
+    - apport.service
+    - whoopsie.service
+  failed_when: false
+
+- name: Turn off MOTD news, ESM/Pro nags, ubuntu-report
+  become: true
+  ansible.builtin.shell: |
+    [ -f /etc/default/motd-news ] && sed -i 's/^ENABLED=.*/ENABLED=0/' /etc/default/motd-news || true
+    systemctl disable --now motd-news.timer 2>/dev/null || true
+    rm -f /var/lib/ubuntu-advantage/messages/* 2>/dev/null || true
+    pro config set apt_news=false 2>/dev/null || true
+    [ -x /usr/bin/ubuntu-report ] && ubuntu-report send no 2>/dev/null || true
+  changed_when: false
+
+- name: Record hardening marker
+  become: true
+  ansible.builtin.copy:
+    dest: /etc/devos-hardening
+    mode: "0644"
+    content: "DevOS baseline hardening applied (UFW, sysctl, SSH key-only, telemetry off)\n"

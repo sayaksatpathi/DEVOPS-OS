@@ -13,7 +13,13 @@
       "verification": {
         "method": "upstream-signature",
         "checksum": "sha256:723bebb0df8411daff1e5fc3862e28ff5581fe5634087f4c29a9aa41d78208b5",
-        "note": "checksum taken from OpenTofu's GPG/cosign-signed SHA256SUMS for v1.13.2 linux_amd64"
+        "sumsUrl": "https://github.com/opentofu/opentofu/releases/download/v1.13.2/tofu_1.13.2_SHA256SUMS",
+        "sigUrl": "https://github.com/opentofu/opentofu/releases/download/v1.13.2/tofu_1.13.2_SHA256SUMS.sig",
+        "certUrl": "https://github.com/opentofu/opentofu/releases/download/v1.13.2/tofu_1.13.2_SHA256SUMS.pem",
+        "certIdentityRegexp": "https://github.com/opentofu/opentofu/.*",
+        "certOidcIssuer": "https://token.actions.githubusercontent.com",
+        "sumEntry": "tofu_1.13.2_linux_amd64.zip",
+        "note": "cosign keyless: verify SHA256SUMS signature against OpenTofu's release identity, then verify the artifact against the verified sums"
       }
     }
   ]

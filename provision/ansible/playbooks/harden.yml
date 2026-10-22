@@ -1,0 +1,8 @@
+---
+# Apply DevOS baseline hardening + telemetry-off to the target. Run during image build and
+# re-runnable on an installed system.
+- name: DevOS hardening
+  hosts: all
+  gather_facts: true
+  roles:
+    - devos_hardening

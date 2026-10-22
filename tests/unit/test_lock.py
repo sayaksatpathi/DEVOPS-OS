@@ -51,3 +51,13 @@ class TestBuildLockfile(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestRollbackPinning(unittest.TestCase):
+    def test_pinned_packages_skip_unresolved(self):
+        lock = {"tools": [
+            {"name": "git", "source": "apt", "version": "1:2.53.0-1ubuntu1"},
+            {"name": "jq", "source": "apt", "version": "UNRESOLVED"},
+            {"name": "tofu", "source": "binary", "version": "1.13.2"},
+        ]}
+        self.assertEqual(cli.pinned_packages_from_lock(lock), ["git=1:2.53.0-1ubuntu1"])

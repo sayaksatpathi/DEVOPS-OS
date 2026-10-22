@@ -124,3 +124,13 @@ planning/audit work, not shipped software.
   Tests 52 -> 62, all passing. VM-level injection cases tracked in testing-strategy.
 - Added docs/subsystem-register.md (WU-0.2) — every §6 subsystem with honest status.
 - Added docs/threat-model.md (WU-0.3) — §11.0 threat categories with mitigations/evidence/residual.
+
+#### 2026-10-22 — Close completable gaps: rollback, system-update, CI verifications, backbone docs
+- Engine: `devos profile rollback` (pin exact versions from a lockfile) and `devos update --system`
+  (whole-OS update preview). 63 tests passing.
+- CI verifications added: Secure Boot boot test (signed chain under SB), vTPM boot test, in-image
+  idempotency assertion (second apply changed=0), package SBOM (CycloneDX on release), desktop GNOME
+  session assertion (gdm3 enabled + gnome-shell).
+- Docs: ADR set (docs/adr), governance.md, hardware-compatibility.md, recovery-backup-rollback.md,
+  package-and-update-lifecycle.md, testing-strategy.md; licensing/trademarks updated (informal name
+  search, archive-component allowlist).

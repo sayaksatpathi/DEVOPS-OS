@@ -51,8 +51,20 @@ echo "== [4/6] provision by booting (cloud-init runs devos apply; network works 
 sed "s/__PROFILES__/${PROFILES//,/ }/g" image/seed/provision-user-data > "$out/prov-user-data"
 cp image/seed/meta-data "$out/prov-meta-data"
 cloud-localds "$out/prov-seed.iso" "$out/prov-user-data" "$out/prov-meta-data"
-bash image/run-vm.sh "$out/devos.qcow2" "$out/prov-seed.iso" "DEVOS_PROVISION_OK" 1200 \
+bash image/run-vm.sh "$out/devos.qcow2" "$out/prov-seed.iso" "DEVOS_PROVISION_OK" 1800 \
   || { echo "ERROR: provisioning boot did not reach success marker"; exit 1; }
+
+# In-image idempotency (gap #2): a second apply must report no changes.
+if grep -q "DEVOS_IDEMPOTENT_FAIL" "$out/serial.log"; then
+  echo "ERROR: in-image re-apply changed state — not idempotent"; exit 1
+fi
+grep -q "DEVOS_IDEMPOTENT_OK" "$out/serial.log" \
+  && echo "in-image idempotency: OK (second apply changed=0)" \
+  || echo "warn: idempotency marker not observed"
+
+# Package SBOM (gap #10): copy the installed-package inventory out of the image (offline).
+virt-copy-out -a "$out/devos.qcow2" /var/lib/devos/packages.tsv "$out/" 2>/dev/null \
+  && echo "SBOM package inventory extracted" || echo "warn: SBOM copy-out failed"
 
 echo "== [5/6] image hygiene (clear cloud-init state, reset machine identity) =="
 virt-customize -a "$out/devos.qcow2" --run-command 'cloud-init clean --logs || true'

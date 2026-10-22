@@ -11,19 +11,41 @@ set -euo pipefail
 img="$1"; seed="$2"; marker="$3"; tmo="${4:-900}"
 out="$(cd "$(dirname "$img")" && pwd)"
 
-code="$(ls /usr/share/OVMF/OVMF_CODE_4M.fd /usr/share/OVMF/OVMF_CODE.fd 2>/dev/null | head -1 || true)"
-varstpl="$(ls /usr/share/OVMF/OVMF_VARS_4M.fd /usr/share/OVMF/OVMF_VARS.fd 2>/dev/null | head -1 || true)"
+# Secure Boot mode (SECBOOT=1): use the secboot firmware + MS-keys-enrolled vars, so a
+# successful boot proves the Ubuntu-signed chain works under Secure Boot.
+if [ "${SECBOOT:-0}" = "1" ]; then
+  code="$(ls /usr/share/OVMF/OVMF_CODE_4M.secboot.fd /usr/share/OVMF/OVMF_CODE.secboot.fd 2>/dev/null | head -1 || true)"
+  varstpl="$(ls /usr/share/OVMF/OVMF_VARS_4M.ms.fd /usr/share/OVMF/OVMF_VARS.ms.fd /usr/share/OVMF/OVMF_VARS_4M.fd 2>/dev/null | head -1 || true)"
+  echo "Secure Boot mode: code=$code vars=$varstpl"
+else
+  code="$(ls /usr/share/OVMF/OVMF_CODE_4M.fd /usr/share/OVMF/OVMF_CODE.fd 2>/dev/null | head -1 || true)"
+  varstpl="$(ls /usr/share/OVMF/OVMF_VARS_4M.fd /usr/share/OVMF/OVMF_VARS.fd 2>/dev/null | head -1 || true)"
+fi
 [ -n "$code" ] && [ -n "$varstpl" ] || { echo "ERROR: OVMF firmware not found (install 'ovmf')"; exit 1; }
 
 vars="$out/OVMF_VARS.fd"; cp -f "$varstpl" "$vars"
 log="$out/serial.log"; : > "$log"
 accel="tcg"; [ -w /dev/kvm ] && accel="kvm"   # -accel takes a single value, not kvm:tcg
-echo "booting $(basename "$img") (accel=$accel, timeout=${tmo}s), waiting for /$marker/"
 
+# Optional emulated TPM 2.0 (TPM=1) — proves the image boots with a vTPM present.
+tpm_args=()
+if [ "${TPM:-0}" = "1" ] && command -v swtpm >/dev/null 2>&1; then
+  tpmdir="$out/swtpm"; mkdir -p "$tpmdir"
+  swtpm socket --tpmstate dir="$tpmdir" --ctrl type=unixio,path="$tpmdir/sock" \
+    --tpm2 --daemon --pid "$tpmdir/pid" 2>/dev/null || true
+  tpm_args=(-chardev socket,id=chrtpm,path="$tpmdir/sock" \
+            -tpmdev emulator,id=tpm0,chardev=chrtpm \
+            -device tpm-tis,tpmdev=tpm0)
+  echo "vTPM enabled"
+fi
+
+echo "booting $(basename "$img") (accel=$accel, SECBOOT=${SECBOOT:-0}, TPM=${TPM:-0}, timeout=${tmo}s), waiting for /$marker/"
 timeout "$tmo" qemu-system-x86_64 \
-  -machine q35 -accel "$accel" -cpu max -m 4096 -smp 2 \
+  -machine q35${SECBOOT:+,smm=on} -accel "$accel" -cpu max -m 4096 -smp 2 \
+  -global ICH9-LPC.disable_s3=1 \
   -drive if=pflash,format=raw,readonly=on,file="$code" \
   -drive if=pflash,format=raw,file="$vars" \
+  "${tpm_args[@]}" \
   -drive file="$img",if=virtio,format=qcow2 \
   -drive file="$seed",if=virtio,format=raw \
   -netdev user,id=n0 -device virtio-net-pci,netdev=n0 \

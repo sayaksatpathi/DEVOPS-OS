@@ -321,6 +321,47 @@ def cmd_profile_remove(args: argparse.Namespace) -> int:
     )
 
 
+def pinned_packages_from_lock(lock: dict) -> list[str]:
+    """Build apt 'name=version' specs from a lockfile, skipping unresolved versions."""
+    out: list[str] = []
+    for t in lock.get("tools", []):
+        if not isinstance(t, dict) or t.get("source") != "apt":
+            continue
+        name, ver = t.get("name"), t.get("version")
+        if name and ver and ver not in ("PLACEHOLDER", "UNRESOLVED"):
+            out.append(f"{name}={ver}")
+    return out
+
+
+def cmd_profile_rollback(args: argparse.Namespace) -> int:
+    """Reinstall the exact versions recorded in a lockfile (profile/tool rollback).
+
+    Honest scope: this rolls back apt-managed tool *versions* where those versions are
+    still available in the archive; it is NOT atomic full-system rollback (ext4).
+    """
+    root = _root()
+    lock_path = Path(args.to) if args.to else engine.locks_dir(root) / f"{args.name}.lock.json"
+    lock = engine.load_lockfile(root, args.name) if not args.to else None
+    if args.to:
+        try:
+            import json as _j
+            lock = _j.loads(lock_path.read_text(encoding="utf-8"))
+        except OSError as e:
+            print(f"error: cannot read lockfile {lock_path}: {e}", file=sys.stderr)
+            return EXIT_NOT_FOUND
+    if lock is None:
+        print(f"error: no lockfile for '{args.name}' at {lock_path}", file=sys.stderr)
+        return EXIT_NOT_FOUND
+    pkgs = pinned_packages_from_lock(lock)
+    if not pkgs:
+        print("no resolved pinned versions in lockfile; run `devos profile lock` on the target first")
+        return EXIT_VALIDATION
+    return _run_profile_ansible(
+        root, args.name, pkgs, state="present", check=not args.confirm,
+        ask_become_pass=args.ask_become_pass, verb="rollback",
+    )
+
+
 def cmd_drift_check(args: argparse.Namespace) -> int:
     """Compare declared profile packages against what is installed. Never changes state."""
     root = _root()
@@ -349,16 +390,34 @@ def cmd_drift_check(args: argparse.Namespace) -> int:
 
 
 def cmd_update_check(args: argparse.Namespace) -> int:
-    """Report available apt updates for a profile's tools. Read-only (simulated)."""
+    """Report available apt updates. Read-only (simulated). --system covers the whole OS."""
     root = _root()
-    profile, err = _load_valid_profile(root, args.name, "update check")
-    if err is not None:
-        return err
-    packages = engine.apt_packages(profile)
     if shutil.which("apt-get") is None:
         print("error: apt-get not found; run `devos update` on the target system.",
               file=sys.stderr)
         return EXIT_ENGINE
+
+    if getattr(args, "system", False):
+        # Whole-OS update preview: kernel, base, security — read-only simulation.
+        sim = subprocess.run(["apt-get", "-s", "dist-upgrade"],
+                             capture_output=True, text=True, check=False).stdout
+        upgrades = [ln for ln in sim.splitlines() if ln.startswith("Inst ")]
+        print("system update check (simulated; no changes)")
+        if not upgrades:
+            print("  system is up to date.")
+            return EXIT_OK
+        kernel = [u for u in upgrades if "linux-image" in u or "linux-generic" in u]
+        print(f"  {len(upgrades)} package update(s) available"
+              + (f", including {len(kernel)} kernel update(s)" if kernel else ""))
+        for u in upgrades[:40]:
+            print(f"  {u}")
+        print("\napply with your OS tooling (apt full-upgrade); DevOS does not auto-upgrade.")
+        return EXIT_OK
+
+    profile, err = _load_valid_profile(root, args.name, "update check")
+    if err is not None:
+        return err
+    packages = engine.apt_packages(profile)
     sim = subprocess.run(["apt-get", "-s", "install", *packages],
                          capture_output=True, text=True, check=False).stdout
     upgrades = [ln for ln in sim.splitlines() if ln.startswith("Inst ")]
@@ -548,15 +607,26 @@ def build_parser() -> argparse.ArgumentParser:
     lck.add_argument("name")
     lck.set_defaults(func=cmd_profile_lock)
 
+    rb = pfsub.add_parser(
+        "rollback", help="reinstall the exact versions from a lockfile (dry-run unless --confirm)"
+    )
+    rb.add_argument("name")
+    rb.add_argument("--to", help="lockfile path to roll back to (default: locks/<name>.lock.json)")
+    rb.add_argument("--confirm", action="store_true", help="actually install the pinned versions")
+    rb.add_argument("--ask-become-pass", action="store_true", help="prompt for sudo password")
+    rb.set_defaults(func=cmd_profile_rollback)
+
     dr = sub.add_parser("drift", help="check declared vs installed state")
     drsub = dr.add_subparsers(dest="subcommand")
     drc = drsub.add_parser("check", help="report missing tools for a profile (no changes)")
     drc.add_argument("--profile", default="core", help="profile name (default: core)")
     drc.set_defaults(func=lambda a: cmd_drift_check(_as_name(a)))
 
-    upd = sub.add_parser("update", help="check for available updates to managed tools (read-only)")
+    upd = sub.add_parser("update", help="check for available updates (read-only)")
     upd.add_argument("--profile", default="core", help="profile name (default: core)")
     upd.add_argument("--check", action="store_true", help="simulate only (default behavior)")
+    upd.add_argument("--system", action="store_true",
+                     help="check whole-OS updates (kernel/base/security), not just tools")
     upd.set_defaults(func=lambda a: cmd_update_check(_as_name(a)))
 
     pt = sub.add_parser("tools", help="inspect managed tools")

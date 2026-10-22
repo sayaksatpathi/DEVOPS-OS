@@ -49,7 +49,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            libguestfs-tools qemu-system-x86 qemu-utils ovmf cloud-image-utils
+            libguestfs-tools qemu-system-x86 qemu-utils ovmf cloud-image-utils swtpm
           # libguestfs on GitHub runners needs a world-readable kernel for its appliance.
           sudo chmod 0644 /boot/vmlinuz-* || true
           # libguestfs uses 'passt' for appliance networking when the binary is present,
@@ -66,6 +66,12 @@ jobs:
 
       - name: Boot test (QEMU / UEFI)
         run: sudo -E bash image/boot-test.sh
+
+      - name: Secure Boot boot test (signed chain under SB)
+        run: sudo -E env SECBOOT=1 bash image/boot-test.sh
+
+      - name: vTPM boot test (boots with an emulated TPM 2.0)
+        run: sudo -E env TPM=1 bash image/boot-test.sh
 
       - name: Fix artifact ownership
         if: always()
@@ -150,6 +156,37 @@ jobs:
         with:
           subject-path: image/out/devos-${{ github.ref_name }}-amd64.qcow2
 
+      - name: Generate + attach SBOM (image package inventory)
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ver="${GITHUB_REF_NAME}"
+          tsv="image/out/packages.tsv"
+          sbom="image/out/devos-${ver}.sbom.cdx.json"
+          if [ -f "$tsv" ]; then
+            python3 - "$tsv" "$sbom" "$ver" <<'PY'
+          import json, sys
+          tsv, out, ver = sys.argv[1], sys.argv[2], sys.argv[3]
+          comps = []
+          for line in open(tsv, encoding="utf-8", errors="replace"):
+              line = line.rstrip("\n")
+              if "\t" not in line: continue
+              name, version = line.split("\t", 1)
+              comps.append({"type": "application", "name": name, "version": version,
+                            "purl": f"pkg:deb/ubuntu/{name}@{version}"})
+          doc = {"bomFormat": "CycloneDX", "specVersion": "1.5",
+                 "metadata": {"component": {"type": "operating-system",
+                              "name": "DevOS", "version": ver}},
+                 "components": comps}
+          json.dump(doc, open(out, "w", encoding="utf-8"), indent=1)
+          print(f"SBOM: {len(comps)} components")
+          PY
+            gh release upload "$ver" "$sbom" "$tsv" --clobber
+          else
+            echo "no packages.tsv found; SBOM skipped"
+          fi
+
   build-desktop-image:
     # Heavier GNOME desktop image. Manual only (workflow_dispatch with desktop=yes),
     # so it doesn't run on every tag. Uploaded as a workflow artifact (too large for
@@ -177,8 +214,8 @@ jobs:
         env:
           LIBGUESTFS_BACKEND: direct
         run: sudo -E bash image/build-cloud-image.sh "core,containers,desktop"
-      - name: Boot test (QEMU / UEFI)
-        run: sudo -E bash image/boot-test.sh
+      - name: Boot test — assert GNOME session (gdm3 enabled + gnome-shell present)
+        run: sudo -E env MARKER=DEVOS_DESKTOP_OK_GNOME_SESSION bash image/boot-test.sh
       - name: Fix artifact ownership
         if: always()
         run: sudo chown -R "$USER" image/out || true

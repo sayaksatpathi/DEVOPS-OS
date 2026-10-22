@@ -1,0 +1,10 @@
+#cloud-config
+# Boot-test seed (NoCloud). Proves the DevOS image boots under UEFI, cloud-init runs,
+# and the baked-in core profile tools are present — then powers off so CI can finish.
+runcmd:
+  - [ bash, -c, "if command -v git >/dev/null 2>&1 && command -v jq >/dev/null 2>&1; then echo DEVOS_BOOT_OK_PROFILE_CORE > /dev/ttyS0; else echo DEVOS_BOOT_FAIL_missing_core_tools > /dev/ttyS0; fi" ]
+  - [ bash, -c, "cat /etc/devos-release > /dev/ttyS0 2>/dev/null || true" ]
+power_state:
+  mode: poweroff
+  timeout: 30
+  condition: true

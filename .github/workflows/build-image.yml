@@ -1,0 +1,63 @@
+name: Build DevOS image
+
+# Builds a bootable DevOS cloud image (qcow2) and boot-tests it under UEFI in QEMU.
+# Manual trigger (and optional tag builds). This produces an EXPERIMENTAL artifact,
+# not a signed public release — it is uploaded to the workflow run, not published.
+
+on:
+  workflow_dispatch:
+    inputs:
+      profiles:
+        description: "Comma-separated DevOS profiles to bake in"
+        required: true
+        default: "core,containers"
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build-image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Enable KVM (hardware acceleration, falls back to TCG if absent)
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm.rules
+          sudo udevadm control --reload-rules || true
+          sudo udevadm trigger --name-match=kvm || true
+          ls -l /dev/kvm || echo "no /dev/kvm; QEMU will use TCG (slower)"
+
+      - name: Install image build tooling
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libguestfs-tools qemu-system-x86 qemu-utils ovmf cloud-image-utils
+          # libguestfs on GitHub runners needs a world-readable kernel for its appliance.
+          sudo chmod 0644 /boot/vmlinuz-* || true
+
+      - name: Build DevOS cloud image
+        env:
+          LIBGUESTFS_BACKEND: direct
+        run: sudo -E bash image/build-cloud-image.sh "${{ github.event.inputs.profiles || 'core,containers' }}"
+
+      - name: Boot test (QEMU / UEFI)
+        run: sudo -E bash image/boot-test.sh
+
+      - name: Fix artifact ownership
+        if: always()
+        run: sudo chown -R "$USER" image/out || true
+
+      - name: Upload image + logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: devos-cloud-image
+          path: |
+            image/out/devos.qcow2
+            image/out/devos.qcow2.sha256
+            image/out/serial.log
+          retention-days: 7
+          if-no-files-found: warn

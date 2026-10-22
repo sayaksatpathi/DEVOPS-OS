@@ -4,11 +4,39 @@ This document answers the core product question: **how does downloading DevOS gi
 complete operating system — one that boots and runs like Ubuntu — with the DevOps packages
 already installed?**
 
-> **Honest status (2026-10-22):** The build described here is **designed and scaffolded but
-> not yet executed.** It requires a disposable Linux builder with virtualization (QEMU/OVMF),
-> which the current development host cannot provide. The `devos` engine that installs the
-> packages **does work and is tested** on Ubuntu 26.04.1 (see `STATUS.md`). What remains is
-> wiring that engine into an image build and booting the result in a VM.
+> **Honest status (2026-10-22):** The `devos` engine that installs the packages **works and is
+> tested** on Ubuntu 26.04.1. The **active build route is GitHub Actions** (`.github/workflows/
+> build-image.yml`), which builds a bootable **cloud image (qcow2)** and boot-tests it under UEFI
+> in QEMU — no local builder or hardware change needed. A custom desktop **ISO** remains future
+> work. The scripts are written and syntax-checked; the first CI run is the real proof, and we
+> iterate on its logs.
+
+## Active route — CI cloud-image build (no local VM needed)
+
+Because the dev host can't run a builder VM, the build runs in GitHub Actions, whose Linux
+runners expose `/dev/kvm`. The pipeline (`image/build-cloud-image.sh` + `image/boot-test.sh`):
+
+1. Download Ubuntu's **official 26.04 server cloud image** and verify it against the official
+   `SHA256SUMS` (with best-effort GPG authenticity of that file).
+2. `virt-customize` the qcow2: copy in the repo, install `ansible-core`, run
+   `devos profile apply <profiles> --confirm` **inside the image**, then `devos profile lock`.
+3. `virt-sysprep` for image hygiene (reset machine-id + SSH host keys, clear logs/history).
+4. **Boot-test** in QEMU/OVMF with a NoCloud seed that verifies the baked-in tools and writes a
+   marker to the serial console, then powers off.
+5. Upload `devos.qcow2` (+ `.sha256` + serial log) as a downloadable workflow artifact.
+
+**Run it:** on GitHub → **Actions → "Build DevOS image" → Run workflow** (pick profiles), or
+push a `v*` tag. Download the artifact and run it locally:
+
+```bash
+qemu-system-x86_64 -machine q35 -accel kvm:tcg -cpu max -m 2048 \
+  -drive if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.fd \
+  -drive if=pflash,format=raw,file=OVMF_VARS.fd \
+  -drive file=devos.qcow2,if=virtio
+```
+
+This is a **real, bootable DevOS** (headless/VM/cloud flavor) with your profiles baked in. The
+desktop-ISO path (below) reuses the same engine and comes later.
 
 ## The model: Ubuntu base + DevOS layer, baked at build time
 

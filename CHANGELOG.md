@@ -65,3 +65,13 @@ planning/audit work, not shipped software.
 - Built `devos profile lock`: resolves installed versions via dpkg-query and writes a schema-valid
   lockfile. Generated a **real** `locks/core.lock.json` (5/5 resolved) from the live image.
 - Added `engine.parse_dpkg_query` + pure `cli.build_lockfile`; 6 new tests (**35 total, passing**).
+
+#### 2026-10-22 — Open-sourced and published to GitHub
+- Added Apache-2.0 LICENSE (provisional), CONTRIBUTING, CODE_OF_CONDUCT, SECURITY,
+  .gitignore, .gitattributes (LF enforcement), issue/PR templates.
+- Added CI (`.github/workflows/ci.yml`): unit tests (3.11/3.12), profile validation,
+  gitleaks secret scan, ansible-lint (advisory).
+- Added `docs/build-and-release.md` (full-OS image architecture: packages baked into the ISO
+  or applied at first boot via the same devos/Ansible engine), guarded `image/build.sh`
+  skeleton, and `services/devos-firstboot/` scaffold.
+- Published source to github.com/sayaksatpathi/DEVOPS-OS (main). No built/signed images.

@@ -29,6 +29,17 @@ image-method spike (WU-0.4), roadmap + Alpha-1 test plan + PoC selection (WU-0.5
 `image/ installer/ system-config/ boot/ packages/ services/ desktop/ profiles/ locks/
 provision/ recovery/ tests/ scripts/ licenses/ .github/`. These are **planned**.
 
+**🟢 BOOTABLE IMAGE ACHIEVED (2026-10-22).** GitHub Actions run 39751210254 built a real
+DevOS **cloud image** (qcow2, ~1.28 GB) from the official Ubuntu 26.04.1 cloud image, baked in
+the `core`+`containers` profiles by booting the image and running `devos profile apply` inside
+it (`DEVOS_PROVISION_OK`), ran image hygiene, and **boot-tested it under UEFI/OVMF**
+(`BOOT TEST PASSED: image boots under UEFI and core profile tools are present`). Downloadable
+artifact: `devos-cloud-image`. This is a server/cloud flavor; a desktop ISO reuses the same
+pipeline and is still future. Not a signed public release.
+**Alpha-1 criteria now demonstrated in CI:** #1 (clean QEMU/OVMF VM boots the produced image),
+#2 (reaches a usable session), #4 (pinned base verified by checksum + GPG), partial #5
+(machine-id/SSH-host-key reset via virt-sysprep).
+
 **Reproducibility engine — first vertical slice (WU-ENG-1), real + tested:**
 
 | Path | Status | Notes |

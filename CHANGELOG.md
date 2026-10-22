@@ -87,3 +87,14 @@ planning/audit work, not shipped software.
   fallback; rejects trust-on-first-use). apply now skips binary tools and says so (pending
   verified-download wiring).
 - Tests 35 → **48, all passing**.
+
+#### 2026-10-22 — 🟢 First bootable DevOS image built in CI
+- GitHub Actions run 39751210254 (green): built a bootable DevOS **cloud image** (qcow2, ~1.28 GB)
+  from the official Ubuntu 26.04.1 cloud image.
+- Provisioned by booting the image in QEMU (KVM) and running `devos profile apply core,containers`
+  inside it (DEVOS_PROVISION_OK), then virt-sysprep hygiene.
+- Boot-tested under UEFI/OVMF: "BOOT TEST PASSED: image boots under UEFI and core profile tools
+  are present."
+- CI fixes to get here: removed passt (libguestfs net), appliance networking unusable → redesigned
+  to provision-by-booting, fixed QEMU -accel flag.
+- Still: server/cloud flavor only (desktop ISO future); experimental, unsigned; artifact expires 7 days.

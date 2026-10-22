@@ -1,0 +1,9 @@
+# Normalize line endings. Keep LF in the repo for everything text; shell scripts and
+# YAML/JSON that run on Linux MUST be LF regardless of the contributor's OS.
+* text=auto eol=lf
+*.sh text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.json text eol=lf
+*.py text eol=lf
+*.service text eol=lf

@@ -33,6 +33,8 @@ if [ "${TPM:-0}" = "1" ] && command -v swtpm >/dev/null 2>&1; then
   tpmdir="$out/swtpm"; mkdir -p "$tpmdir"
   swtpm socket --tpmstate dir="$tpmdir" --ctrl type=unixio,path="$tpmdir/sock" \
     --tpm2 --daemon --pid "$tpmdir/pid" 2>/dev/null || true
+  # Wait for the swtpm control socket before QEMU connects (avoids a startup race).
+  for _ in $(seq 1 50); do [ -S "$tpmdir/sock" ] && break; sleep 0.2; done
   tpm_args=(-chardev socket,id=chrtpm,path="$tpmdir/sock" \
             -tpmdev emulator,id=tpm0,chardev=chrtpm \
             -device tpm-tis,tpmdev=tpm0)

@@ -1,0 +1,34 @@
+#cloud-config
+# FDE variant of the DevOS autoinstall: installs onto a LUKS-encrypted LVM layout.
+# __PROFILES__, __PWHASH__, __LUKSPASS__ are filled by image/build-installer-iso.sh.
+#
+# SECURITY: the LUKS passphrase here is a build-time default for an EXPERIMENTAL image.
+# A real deployment MUST set its own passphrase and store a recovery key safely. The
+# installed account is forced to change its password on first login (chage -d 0).
+autoinstall:
+  version: 1
+  locale: en_US.UTF-8
+  keyboard:
+    layout: us
+  identity:
+    hostname: devos
+    username: devos
+    password: "__PWHASH__"
+  ssh:
+    install-server: true
+    allow-pw: true
+  packages:
+    - ansible-core
+    - python3
+  storage:
+    layout:
+      name: lvm
+      password: "__LUKSPASS__"
+  late-commands:
+    - "echo DEVOS_INSTALL_START_FDE > /dev/ttyS0"
+    - "cp /cdrom/devos-src.tar.gz /target/opt/devos-src.tar.gz"
+    - "mkdir -p /target/opt/devos && tar xzf /target/opt/devos-src.tar.gz -C /target/opt/devos"
+    - "curtin in-target --target=/target -- bash -c 'cd /opt/devos && for p in __PROFILES__; do PYTHONPATH=packages/cli DEVOS_ROOT=/opt/devos python3 -m devos profile apply $p --confirm; done'"
+    - "curtin in-target --target=/target -- chage -d 0 devos"
+    - "echo DEVOS_INSTALL_OK > /dev/ttyS0"
+  shutdown: poweroff

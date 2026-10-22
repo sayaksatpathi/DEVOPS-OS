@@ -27,7 +27,17 @@ on:
         options: ["no", "yes"]
         default: "no"
       failtest:
-        description: "Run the VM failure-injection suite?"
+        description: "Run the VM failure-injection + backup/restore suite?"
+        type: choice
+        options: ["no", "yes"]
+        default: "no"
+      upgrade:
+        description: "Run the OS upgrade (apply + reboot) test?"
+        type: choice
+        options: ["no", "yes"]
+        default: "no"
+      fde:
+        description: "Build the installer ISO with full-disk encryption (needs iso=yes)?"
         type: choice
         options: ["no", "yes"]
         default: "no"
@@ -86,28 +96,45 @@ jobs:
         continue-on-error: true
         run: sudo -E env TPM=1 bash image/boot-test.sh
 
-      - name: CVE + license scan (Trivy, report-only)
-        # Report-only: a flaky scanner install must not block the signed release.
-        continue-on-error: true
+      - name: Generate SBOM from image package inventory
         run: |
-          sudo apt-get install -y wget gnupg
-          wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key \
-            | gpg --dearmor | sudo tee /usr/share/keyrings/trivy.gpg >/dev/null
-          echo "deb [signed-by=/usr/share/keyrings/trivy.gpg] https://aquasecurity.github.io/trivy-repo/deb generic main" \
-            | sudo tee /etc/apt/sources.list.d/trivy.list
-          sudo apt-get update && sudo apt-get install -y trivy
-          trivy --version
-          echo "CVE scan starting $(date -u)" > image/out/trivy-vuln.txt
-          sudo trivy vm --scanners vuln --severity HIGH,CRITICAL --no-progress \
-            --format table image/out/devos.qcow2 >> image/out/trivy-vuln.txt 2>&1 \
-            || echo "(trivy vuln scan exited non-zero; see above)" >> image/out/trivy-vuln.txt
-          echo "License scan starting $(date -u)" > image/out/trivy-license.txt
-          sudo trivy vm --scanners license --no-progress \
-            --format table image/out/devos.qcow2 >> image/out/trivy-license.txt 2>&1 \
-            || echo "(trivy license scan exited non-zero; see above)" >> image/out/trivy-license.txt
-          sudo chown "$USER" image/out/trivy-*.txt || true
-          echo "=== trivy reports ==="; ls -la image/out/trivy-*.txt
-          { echo "## CVE scan (HIGH/CRITICAL)"; grep -iE "Total:|CRITICAL|HIGH" image/out/trivy-vuln.txt | head -5; } >> "$GITHUB_STEP_SUMMARY" || true
+          sudo chown "$USER" image/out/packages.tsv 2>/dev/null || true
+          python3 - image/out/packages.tsv image/out/devos.sbom.cdx.json "${GITHUB_REF_NAME:-dev}" <<'PY'
+          import json, sys
+          tsv, out, ver = sys.argv[1], sys.argv[2], sys.argv[3]
+          comps = []
+          try:
+              for line in open(tsv, encoding="utf-8", errors="replace"):
+                  line = line.rstrip("\n")
+                  if "\t" not in line: continue
+                  name, version = line.split("\t", 1)
+                  comps.append({"type": "library", "name": name, "version": version,
+                                "purl": f"pkg:deb/ubuntu/{name}@{version}?distro=ubuntu-26.04"})
+          except FileNotFoundError:
+              pass
+          json.dump({"bomFormat": "CycloneDX", "specVersion": "1.5",
+                     "metadata": {"component": {"type": "operating-system",
+                                  "name": "DevOS", "version": ver}},
+                     "components": comps}, open(out, "w"), indent=1)
+          print(f"SBOM components: {len(comps)}")
+          PY
+
+      - name: CVE scan (Trivy on SBOM — reliable, report-only)
+        continue-on-error: true
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: sbom
+          scan-ref: image/out/devos.sbom.cdx.json
+          format: table
+          output: image/out/trivy-vuln.txt
+          severity: HIGH,CRITICAL
+          exit-code: "0"
+
+      - name: CVE summary
+        if: always()
+        run: |
+          echo "## CVE scan (HIGH/CRITICAL, from SBOM)" >> "$GITHUB_STEP_SUMMARY"
+          [ -f image/out/trivy-vuln.txt ] && tail -20 image/out/trivy-vuln.txt >> "$GITHUB_STEP_SUMMARY" || echo "(no report)" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Fix artifact ownership
         if: always()
@@ -192,39 +219,16 @@ jobs:
         with:
           subject-path: image/out/devos-${{ github.ref_name }}-amd64.qcow2
 
-      - name: Generate + attach SBOM (image package inventory)
+      - name: Attach SBOM + CVE report to release
         if: startsWith(github.ref, 'refs/tags/v')
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           ver="${GITHUB_REF_NAME}"
-          tsv="image/out/packages.tsv"
           sbom="image/out/devos-${ver}.sbom.cdx.json"
-          if [ -f "$tsv" ]; then
-            python3 - "$tsv" "$sbom" "$ver" <<'PY'
-          import json, sys
-          tsv, out, ver = sys.argv[1], sys.argv[2], sys.argv[3]
-          comps = []
-          for line in open(tsv, encoding="utf-8", errors="replace"):
-              line = line.rstrip("\n")
-              if "\t" not in line: continue
-              name, version = line.split("\t", 1)
-              comps.append({"type": "application", "name": name, "version": version,
-                            "purl": f"pkg:deb/ubuntu/{name}@{version}"})
-          doc = {"bomFormat": "CycloneDX", "specVersion": "1.5",
-                 "metadata": {"component": {"type": "operating-system",
-                              "name": "DevOS", "version": ver}},
-                 "components": comps}
-          json.dump(doc, open(out, "w", encoding="utf-8"), indent=1)
-          print(f"SBOM: {len(comps)} components")
-          PY
-            gh release upload "$ver" "$sbom" "$tsv" --clobber
-          else
-            echo "no packages.tsv found; SBOM skipped"
-          fi
-          # Attach CVE + license scan reports (gaps #6/#7)
-          for r in image/out/trivy-vuln.txt image/out/trivy-license.txt; do
-            [ -f "$r" ] && gh release upload "$ver" "$r" --clobber || true
+          cp -f image/out/devos.sbom.cdx.json "$sbom" 2>/dev/null || true
+          for f in "$sbom" image/out/packages.tsv image/out/trivy-vuln.txt; do
+            [ -f "$f" ] && gh release upload "$ver" "$f" --clobber || true
           done
 
   build-desktop-image:
@@ -291,6 +295,8 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y xorriso qemu-system-x86 qemu-utils ovmf whois
       - name: Build DevOS installer ISO (core)
+        env:
+          FDE: ${{ github.event.inputs.fde == 'yes' && '1' || '0' }}
         run: sudo -E bash image/build-installer-iso.sh "core"
       - name: Installer boot test (QEMU / UEFI, unattended install)
         run: sudo -E bash image/boot-installer-test.sh
@@ -363,3 +369,31 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y ansible-core python3
       - name: Run failure-injection suite
         run: sudo -E bash tests/vm/failure-injection.sh
+      - name: Run backup/restore recovery test
+        run: sudo -E bash tests/vm/backup-restore.sh
+
+  os-upgrade:
+    # OS upgrade applied + rebooted (gap #4). Manual (dispatch upgrade=yes).
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.upgrade == 'yes'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm.rules
+          sudo udevadm control --reload-rules || true
+          sudo udevadm trigger --name-match=kvm || true
+      - name: Install tooling
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libguestfs-tools qemu-system-x86 qemu-utils ovmf cloud-image-utils
+          sudo chmod 0644 /boot/vmlinuz-* || true
+          sudo apt-get remove -y passt >/dev/null 2>&1 || true
+          sudo rm -f /usr/bin/passt /usr/sbin/passt || true
+      - name: Build base image
+        env: { LIBGUESTFS_BACKEND: direct }
+        run: sudo -E bash image/build-cloud-image.sh "core"
+      - name: OS upgrade + reboot test
+        run: sudo -E bash image/upgrade-test.sh

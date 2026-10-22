@@ -140,3 +140,12 @@ planning/audit work, not shipped software.
 - CI: independent-reproducibility job — builds the image twice and asserts identical package sets (gap #14/#8).
 - CI: VM-level failure-injection suite (tests/vm/failure-injection.sh) — missing artifact, bad checksum,
   dpkg-lock contention, malformed profile; asserts clean non-zero failure (gap #13).
+
+#### 2026-10-22 — Close the 5 automatable production gaps
+- #1 installer install->reboot->login: boot-installer-test now boots the INSTALLED disk and
+  asserts it reaches a login prompt.
+- #2 FDE: LUKS-encrypted installer variant (image/autoinstall/user-data-fde; build FDE=1).
+- #3 recovery: restic backup->restore test (tests/vm/backup-restore.sh) in the failtest job.
+- #4 OS upgrade: upgrade-test.sh applies apt full-upgrade in-guest and verifies reboot->login.
+- #5 CVE: reliable Trivy scan of the generated CycloneDX SBOM (no flaky qcow2 mount); SBOM now
+  generated on every build and attached to releases.

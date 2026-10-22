@@ -1,0 +1,10 @@
+#cloud-config
+# OS-upgrade test seed: apply all available OS updates (kernel/base/security) in the
+# running image, then reboot. Proves the upgrade path actually applies and the system
+# comes back — not just a simulation.
+runcmd:
+  - [ bash, -c, "export DEBIAN_FRONTEND=noninteractive; apt-get update > /dev/ttyS0 2>&1 && apt-get -y full-upgrade > /dev/ttyS0 2>&1 && echo DEVOS_UPGRADE_OK > /dev/ttyS0 || echo DEVOS_UPGRADE_FAIL > /dev/ttyS0" ]
+power_state:
+  mode: reboot
+  timeout: 30
+  condition: true

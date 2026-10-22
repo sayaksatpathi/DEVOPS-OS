@@ -26,9 +26,16 @@ echo "${want}  ${src}" | sha256sum -c -
 echo "== [3/5] build autoinstall seed + source tarball =="
 pwhash="$(openssl passwd -6 devos)"
 rm -rf "$out/nocloud"; mkdir -p "$out/nocloud"
+if [ "${FDE:-0}" = "1" ]; then
+  echo "   FDE mode: LUKS-encrypted install"
+  src_ud="image/autoinstall/user-data-fde"
+else
+  src_ud="image/autoinstall/user-data"
+fi
 sed -e "s|__PROFILES__|${PROFILES//,/ }|g" \
     -e "s|__PWHASH__|${pwhash//|/\\|}|g" \
-    image/autoinstall/user-data > "$out/nocloud/user-data"
+    -e "s|__LUKSPASS__|devos-luks-changeme|g" \
+    "$src_ud" > "$out/nocloud/user-data"
 : > "$out/nocloud/meta-data"
 tar czf "$out/devos-src.tar.gz" --exclude=.git --exclude='image/out' .
 

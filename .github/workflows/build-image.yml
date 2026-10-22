@@ -98,7 +98,7 @@ jobs:
 
       - name: Generate SBOM from image package inventory
         run: |
-          sudo chown "$USER" image/out/packages.tsv 2>/dev/null || true
+          sudo chown -R "$USER" image/out 2>/dev/null || true
           python3 - image/out/packages.tsv image/out/devos.sbom.cdx.json "${GITHUB_REF_NAME:-dev}" <<'PY'
           import json, sys
           tsv, out, ver = sys.argv[1], sys.argv[2], sys.argv[3]

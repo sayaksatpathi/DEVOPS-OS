@@ -34,16 +34,19 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y \
-            libguestfs-tools qemu-system-x86 qemu-utils ovmf cloud-image-utils passt
+            libguestfs-tools qemu-system-x86 qemu-utils ovmf cloud-image-utils
           # libguestfs on GitHub runners needs a world-readable kernel for its appliance.
           sudo chmod 0644 /boot/vmlinuz-* || true
+          # libguestfs uses 'passt' for appliance networking when the binary is present,
+          # but passt is broken on the runner ("passt exited with status 1"). Remove it so
+          # libguestfs falls back to the reliable built-in slirp backend.
+          sudo apt-get remove -y passt >/dev/null 2>&1 || true
+          sudo rm -f /usr/bin/passt /usr/sbin/passt || true
+          echo "passt present after removal: $(command -v passt || echo 'no (good)')"
 
       - name: Build DevOS cloud image
         env:
           LIBGUESTFS_BACKEND: direct
-          # Force the reliable slirp network backend: the newer 'passt' default fails on
-          # GitHub runners ("passt exited with status 1").
-          LIBGUESTFS_BACKEND_SETTINGS: network=slirp
         run: sudo -E bash image/build-cloud-image.sh "${{ github.event.inputs.profiles || 'core,containers' }}"
 
       - name: Boot test (QEMU / UEFI)

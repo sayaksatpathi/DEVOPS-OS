@@ -21,6 +21,16 @@ on:
         type: choice
         options: ["no", "yes"]
         default: "no"
+      repro:
+        description: "Run the independent-reproducibility check (builds twice)?"
+        type: choice
+        options: ["no", "yes"]
+        default: "no"
+      failtest:
+        description: "Run the VM failure-injection suite?"
+        type: choice
+        options: ["no", "yes"]
+        default: "no"
   push:
     tags:
       - "v*"
@@ -72,6 +82,21 @@ jobs:
 
       - name: vTPM boot test (boots with an emulated TPM 2.0)
         run: sudo -E env TPM=1 bash image/boot-test.sh
+
+      - name: CVE + license scan (Trivy, report-only)
+        run: |
+          sudo apt-get install -y wget gnupg
+          wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key \
+            | gpg --dearmor | sudo tee /usr/share/keyrings/trivy.gpg >/dev/null
+          echo "deb [signed-by=/usr/share/keyrings/trivy.gpg] https://aquasecurity.github.io/trivy-repo/deb generic main" \
+            | sudo tee /etc/apt/sources.list.d/trivy.list
+          sudo apt-get update && sudo apt-get install -y trivy
+          sudo trivy vm --scanners vuln --severity HIGH,CRITICAL --no-progress \
+            --format table image/out/devos.qcow2 | tee image/out/trivy-vuln.txt || true
+          sudo trivy vm --scanners license --no-progress \
+            --format table image/out/devos.qcow2 | tee image/out/trivy-license.txt || true
+          echo "## CVE summary (HIGH/CRITICAL)" >> "$GITHUB_STEP_SUMMARY"
+          grep -E "Total:|CRITICAL|HIGH" image/out/trivy-vuln.txt | head -5 >> "$GITHUB_STEP_SUMMARY" || true
 
       - name: Fix artifact ownership
         if: always()
@@ -186,6 +211,10 @@ jobs:
           else
             echo "no packages.tsv found; SBOM skipped"
           fi
+          # Attach CVE + license scan reports (gaps #6/#7)
+          for r in image/out/trivy-vuln.txt image/out/trivy-license.txt; do
+            [ -f "$r" ] && gh release upload "$ver" "$r" --clobber || true
+          done
 
   build-desktop-image:
     # Heavier GNOME desktop image. Manual only (workflow_dispatch with desktop=yes),
@@ -268,3 +297,58 @@ jobs:
             image/out/installer-serial.log
           retention-days: 7
           if-no-files-found: warn
+
+  reproducibility:
+    # Independent-reproducibility check (Alpha-1 #8 / gap #14): build the image twice and
+    # assert the installed package set (name+version) matches. Manual (dispatch repro=yes).
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.repro == 'yes'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm.rules
+          sudo udevadm control --reload-rules || true
+          sudo udevadm trigger --name-match=kvm || true
+      - name: Install tooling
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libguestfs-tools qemu-system-x86 qemu-utils ovmf cloud-image-utils
+          sudo chmod 0644 /boot/vmlinuz-* || true
+          sudo apt-get remove -y passt >/dev/null 2>&1 || true
+          sudo rm -f /usr/bin/passt /usr/sbin/passt || true
+      - name: Build #1
+        env: { LIBGUESTFS_BACKEND: direct }
+        run: |
+          sudo -E bash image/build-cloud-image.sh "core,containers"
+          sort image/out/packages.tsv > /tmp/pkgs-1.tsv
+          sudo rm -f image/out/devos.qcow2 image/out/ubuntu-26.04-server-cloudimg-amd64.img
+      - name: Build #2
+        env: { LIBGUESTFS_BACKEND: direct }
+        run: |
+          sudo -E bash image/build-cloud-image.sh "core,containers"
+          sort image/out/packages.tsv > /tmp/pkgs-2.tsv
+      - name: Compare package sets
+        run: |
+          if diff -u /tmp/pkgs-1.tsv /tmp/pkgs-2.tsv > /tmp/pkgs.diff; then
+            echo "REPRODUCIBLE: identical installed package sets across two independent builds."
+          else
+            echo "DIFFERENCES between builds (package name=version):"
+            cat /tmp/pkgs.diff
+            echo "note: minor diffs can come from mirror updates between builds; review above."
+            exit 1
+          fi
+
+  failure-injection:
+    # VM-level failure injection (§13.3 / gap #13) on a disposable runner. Manual (failtest=yes).
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.failtest == 'yes'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install provisioning tooling
+        run: sudo apt-get update && sudo apt-get install -y ansible-core python3
+      - name: Run failure-injection suite
+        run: sudo -E bash tests/vm/failure-injection.sh

@@ -134,3 +134,9 @@ planning/audit work, not shipped software.
 - Docs: ADR set (docs/adr), governance.md, hardware-compatibility.md, recovery-backup-rollback.md,
   package-and-update-lifecycle.md, testing-strategy.md; licensing/trademarks updated (informal name
   search, archive-component allowlist).
+
+#### 2026-10-22 — Production-hardening: CVE/license scan, reproducibility, VM failure injection
+- CI: Trivy CVE scan (HIGH/CRITICAL) + license scan of the image, reports attached to releases (gaps #6/#7).
+- CI: independent-reproducibility job — builds the image twice and asserts identical package sets (gap #14/#8).
+- CI: VM-level failure-injection suite (tests/vm/failure-injection.sh) — missing artifact, bad checksum,
+  dpkg-lock contention, malformed profile; asserts clean non-zero failure (gap #13).

@@ -108,3 +108,12 @@ planning/audit work, not shipped software.
 - Tests 48 → **52, all passing**; verified on real WSL (gate passes OpenTofu, playbook wires up).
 - Added release step: on a `v*` tag, CI attaches the bootable qcow2 to a GitHub prerelease.
 - Cut tag v0.1.0-alpha1 to publish the first downloadable DevOS image.
+
+#### 2026-10-22 — Signing/provenance, trademark docs, desktop profile
+- Release pipeline now signs images keyless (Sigstore/cosign sign-blob), attaches a build
+  manifest, and emits a SLSA build-provenance attestation (no production key custody).
+- Added docs/licensing-and-trademarks.md: trademark status (provisional, NOT cleared), the
+  clearance steps to run, and image-redistribution license obligations.
+- Added `desktop` profile (GNOME: ubuntu-desktop-minimal + gdm3) and a manual desktop-image
+  build job (workflow_dispatch desktop=yes) producing a bootable GNOME desktop qcow2.
+- Local footprint cleanup (git gc); project uses ~223 KB — D: usage is unrelated user data.

@@ -15,8 +15,19 @@ the DevOS DevOps profiles baked in by the `devos` engine, boot-tested under UEFI
 
 ### Verify the download
 ```bash
+# integrity
 sha256sum -c devos-<version>-amd64.qcow2.sha256
+
+# authenticity (keyless Sigstore signature — proves it came from this repo's CI)
+cosign verify-blob \
+  --certificate   devos-<version>-amd64.qcow2.pem \
+  --signature     devos-<version>-amd64.qcow2.sig \
+  --certificate-identity-regexp 'https://github.com/sayaksatpathi/DEVOPS-OS/.*' \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  devos-<version>-amd64.qcow2
 ```
+A SLSA build-provenance attestation is also attached to the release (and viewable via
+`gh attestation verify`), binding the image to the exact workflow run that built it.
 
 ### Run it (QEMU, UEFI)
 ```bash

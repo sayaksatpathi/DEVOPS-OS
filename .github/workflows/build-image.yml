@@ -11,12 +11,19 @@ on:
         description: "Comma-separated DevOS profiles to bake in"
         required: true
         default: "core,containers"
+      desktop:
+        description: "Also build the heavier GNOME desktop image?"
+        type: choice
+        options: ["no", "yes"]
+        default: "no"
   push:
     tags:
       - "v*"
 
 permissions:
-  contents: write   # needed to create a Release on tag builds
+  contents: write       # create a Release on tag builds
+  id-token: write       # keyless Sigstore/cosign signing + provenance (OIDC)
+  attestations: write   # actions/attest-build-provenance
 
 jobs:
   build-image:
@@ -91,3 +98,93 @@ jobs:
               --notes-file image/release-notes.md
           gh release upload "$ver" \
             "$asset" "image/out/devos-${ver}-amd64.qcow2.sha256" --clobber
+
+      - name: Attach build manifest (provenance summary)
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ver="${GITHUB_REF_NAME}"
+          sum="$(cut -d' ' -f1 image/out/devos-${ver}-amd64.qcow2.sha256)"
+          cat > "image/out/devos-${ver}.manifest.json" <<JSON
+          {
+            "name": "DevOS",
+            "version": "${ver}",
+            "arch": "amd64",
+            "base_image": "ubuntu-26.04-server-cloudimg-amd64",
+            "profiles": "${{ github.event.inputs.profiles || 'core,containers' }}",
+            "image_sha256": "${sum}",
+            "built_by": "github-actions run ${{ github.run_id }}",
+            "repo": "${{ github.repository }}",
+            "commit": "${{ github.sha }}"
+          }
+          JSON
+          gh release upload "$ver" "image/out/devos-${ver}.manifest.json" --clobber
+
+      - name: Install cosign
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: sigstore/cosign-installer@v3
+
+      - name: Sign image (keyless, Sigstore)
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COSIGN_YES: "true"
+        run: |
+          ver="${GITHUB_REF_NAME}"
+          asset="image/out/devos-${ver}-amd64.qcow2"
+          cosign sign-blob --yes \
+            --output-signature "${asset}.sig" \
+            --output-certificate "${asset}.pem" \
+            "$asset"
+          gh release upload "$ver" "${asset}.sig" "${asset}.pem" --clobber
+
+      - name: Attest build provenance (SLSA, Sigstore)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: actions/attest-build-provenance@v1
+        with:
+          subject-path: image/out/devos-${{ github.ref_name }}-amd64.qcow2
+
+  build-desktop-image:
+    # Heavier GNOME desktop image. Manual only (workflow_dispatch with desktop=yes),
+    # so it doesn't run on every tag. Uploaded as a workflow artifact (too large for
+    # a 2 GiB release asset); verified by booting under UEFI like the cloud image.
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.desktop == 'yes'
+    runs-on: ubuntu-latest
+    timeout-minutes: 110
+    steps:
+      - uses: actions/checkout@v4
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm.rules
+          sudo udevadm control --reload-rules || true
+          sudo udevadm trigger --name-match=kvm || true
+      - name: Install image build tooling
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libguestfs-tools qemu-system-x86 qemu-utils ovmf cloud-image-utils
+          sudo chmod 0644 /boot/vmlinuz-* || true
+          sudo apt-get remove -y passt >/dev/null 2>&1 || true
+          sudo rm -f /usr/bin/passt /usr/sbin/passt || true
+      - name: Build DevOS desktop image (core + containers + GNOME desktop)
+        env:
+          LIBGUESTFS_BACKEND: direct
+        run: sudo -E bash image/build-cloud-image.sh "core,containers,desktop"
+      - name: Boot test (QEMU / UEFI)
+        run: sudo -E bash image/boot-test.sh
+      - name: Fix artifact ownership
+        if: always()
+        run: sudo chown -R "$USER" image/out || true
+      - name: Upload desktop image
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: devos-desktop-image
+          path: |
+            image/out/devos.qcow2
+            image/out/devos.qcow2.sha256
+            image/out/serial.log
+          retention-days: 7
+          if-no-files-found: warn

@@ -1,0 +1,6 @@
+---
+# Generic apt role shared by every DevOS profile. The devos CLI passes the actual
+# package list (derived from the profile) and the desired state via --extra-vars.
+devos_apt_packages: []
+devos_apt_state: present   # 'present' to install, 'absent' to remove (profile-owned only)
+devos_profile: "unknown"

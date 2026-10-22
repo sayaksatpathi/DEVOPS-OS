@@ -35,11 +35,14 @@ provision/ recovery/ tests/ scripts/ licenses/ .github/`. These are **planned**.
 |------|--------|-------|
 | `profiles/schemas/profile.schema.json` | implemented | Provisional v0.1.0 contract (JSON) |
 | `profiles/definitions/core.json` | implemented | Core profile (git, openssh-client, curl, jq, ca-certificates) |
+| `profiles/definitions/containers.json` | implemented | Rootless Podman profile (podman, uidmap, slirp4netns, passt, fuse-overlayfs) |
 | `locks/core.lock.json` | implemented (real) | **5/5 resolved** from live 26.04.1 via `devos profile lock` (e.g. git `1:2.53.0-1ubuntu1`); baseImage digest still UNVERIFIED (no pinned ISO) |
-| `packages/cli/devos/` | partially implemented | `doctor`, `profile list/inspect/validate/apply/lock`, `tools list`, `--version` |
+| `packages/cli/devos/` | implemented | `doctor`, `profile list/inspect/validate/apply/remove/lock`, `drift check`, `update`, `tools list`, `--version` |
+| `packages/cli/devos/verify.py` | implemented | §9.1 supply-chain gate: sha256 verify + install policy (sig/attestation/approved-fallback) |
+| generic Ansible role `devos_apt` + `playbooks/apply.yml` | implemented | Shared install/remove role used by every profile |
 | `provision/ansible/` (role `devos_core`, playbook, requirements.yml, cfg) | implemented | Core profile → idempotent apt install; collections empty (core = ansible.builtin only) |
 | `devos profile apply` | implemented (dry-run-safe) | Derives apt list from the profile; **`--check` by default**, real changes need `--confirm` |
-| `tests/unit/` (schema, cli, apply, lock) | tested | **35 tests, all passing** |
+| `tests/unit/` (schema, cli, apply, lock, verify) | tested | **48 tests, all passing** |
 
 **Proven on real Ubuntu 26.04.1 (WSL), end to end:** `devos doctor` all-ok → `profile validate`
 → `profile apply core --confirm` (Ansible + **sudo-rs** become, **idempotent: changed=0** on
@@ -49,8 +52,10 @@ re-run → Alpha-1 criterion #9) → `profile lock core` (**real** versions reso
 sudo-rs `become` characterized (needs passwordless sudo; interactive prompt mis-times) ✅.
 **Not yet done:** `ansible-lint`/Molecule; narrow (non-NOPASSWD) elevation model; pinned-ISO digest.
 
-**Deliberately NOT implemented** (no empty stubs): `profile install/remove/upgrade`,
-`drift check`, `update` — these need more engine work and are planned, not shipped.
+**Still planned** (honest gaps, not stubbed): `profile upgrade` (version-bump preview);
+**binary-tool install** in `apply` (the `verify.py` gate exists and is tested, but download +
+signature verification + install for `source: binary` tools like OpenTofu/kubectl is not wired
+yet, so apply currently skips binary tools and says so); `ansible-lint`/Molecule hardening.
 
 Run it: `PYTHONPATH=packages/cli DEVOS_ROOT=$PWD python -m devos profile validate --all`
 Test it: `PYTHONPATH=packages/cli python -m unittest discover -s tests/unit`

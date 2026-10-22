@@ -1,9 +1,0 @@
----
-# Applies the DevOS 'core' profile to the target. Intended to be invoked by
-# `devos profile apply core`, which passes devos_core_apt_packages. Safe to run
-# with --check (no changes). Requires privilege escalation for the apt task.
-- name: DevOS core profile
-  hosts: all
-  gather_facts: true
-  roles:
-    - devos_core

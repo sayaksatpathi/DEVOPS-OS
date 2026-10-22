@@ -1,0 +1,9 @@
+---
+# Generic apply/remove playbook for any DevOS profile. Invoked by the devos CLI,
+# which passes devos_profile, devos_apt_packages, and devos_apt_state. Safe with
+# --check (no changes). Requires privilege escalation for the apt task.
+- name: "DevOS profile {{ devos_profile | default('unknown') }}"
+  hosts: all
+  gather_facts: true
+  roles:
+    - devos_apt

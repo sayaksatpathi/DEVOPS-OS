@@ -1,0 +1,12 @@
+{
+  "schemaVersion": "0.1.0",
+  "name": "containers",
+  "description": "Rootless container workflow: Podman plus the userspace networking and uid-mapping tools it needs for unprivileged containers.",
+  "tools": [
+    { "name": "podman", "capability": "container-runtime", "source": "apt" },
+    { "name": "uidmap", "capability": "subuid-subgid", "source": "apt" },
+    { "name": "slirp4netns", "capability": "rootless-networking", "source": "apt" },
+    { "name": "passt", "capability": "rootless-networking", "source": "apt" },
+    { "name": "fuse-overlayfs", "capability": "rootless-storage", "source": "apt" }
+  ]
+}

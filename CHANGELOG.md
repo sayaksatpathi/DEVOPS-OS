@@ -75,3 +75,15 @@ planning/audit work, not shipped software.
   or applied at first boot via the same devos/Ansible engine), guarded `image/build.sh`
   skeleton, and `services/devos-firstboot/` scaffold.
 - Published source to github.com/sayaksatpathi/DEVOPS-OS (main). No built/signed images.
+
+#### 2026-10-22 — Engine completion: lifecycle commands, containers profile, verify module
+- Refactored Ansible to a generic `devos_apt` role + `playbooks/apply.yml` (install/remove via
+  a `state` var; never autoremove/purge on removal → preserves user data).
+- Added commands: `profile remove` (dry-run default), `drift check`, `update` (read-only sim).
+  Verified on live 26.04.1: generic apply idempotent (changed=0); drift shows no drift; update
+  detected a real curl security update (…2.7 → …2.8).
+- Added `containers` profile (rootless Podman + userspace net/storage tools).
+- Added `verify.py`: SHA-256 integrity + §9.1 install policy (signature/attestation/approved
+  fallback; rejects trust-on-first-use). apply now skips binary tools and says so (pending
+  verified-download wiring).
+- Tests 35 → **48, all passing**.

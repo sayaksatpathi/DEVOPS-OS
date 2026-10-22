@@ -48,14 +48,29 @@ class TestBuildApplyCommand(unittest.TestCase):
         )
         self.assertNotIn("--check", cmd)
 
+    def test_uses_generic_apply_playbook(self):
+        cmd, _cwd, _env = cli.build_apply_command(
+            REPO_ROOT, "core", ["git"], check=True
+        )
+        self.assertIn("playbooks/apply.yml", cmd)
+
     def test_packages_passed_as_extra_vars(self):
         cmd, _cwd, _env = cli.build_apply_command(
             REPO_ROOT, "core", ["git", "jq"], check=True
         )
         joined = " ".join(cmd)
-        self.assertIn("devos_core_apt_packages", joined)
+        self.assertIn("devos_apt_packages", joined)
+        self.assertIn("devos_apt_state", joined)
         self.assertIn("git", joined)
         self.assertIn("jq", joined)
+
+    def test_state_present_vs_absent(self):
+        cmd_i, _, _ = cli.build_apply_command(REPO_ROOT, "core", ["git"], check=True,
+                                              state="present")
+        cmd_r, _, _ = cli.build_apply_command(REPO_ROOT, "core", ["git"], check=True,
+                                              state="absent")
+        self.assertIn("present", " ".join(cmd_i))
+        self.assertIn("absent", " ".join(cmd_r))
 
     def test_ask_become_pass_flag(self):
         cmd, _cwd, _env = cli.build_apply_command(

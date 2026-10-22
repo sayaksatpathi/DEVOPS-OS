@@ -39,6 +39,12 @@ def _root() -> Path:
     return engine.find_root()
 
 
+def _as_name(args: argparse.Namespace) -> argparse.Namespace:
+    """Adapt commands that take --profile to the shared handlers that read .name."""
+    args.name = args.profile
+    return args
+
+
 def cmd_doctor(_args: argparse.Namespace) -> int:
     """Report environment facts relevant to running the engine. Never mutates."""
     checks: list[tuple[str, bool, str]] = []
@@ -132,18 +138,23 @@ def cmd_profile_validate(args: argparse.Namespace) -> int:
 
 def build_apply_command(
     root: Path, profile_name: str, packages: list[str], *, check: bool,
-    ask_become_pass: bool = False,
+    state: str = "present", ask_become_pass: bool = False,
 ) -> tuple[list[str], Path, dict[str, str]]:
-    """Build the (argv, cwd, env-overrides) for an ansible apply.
+    """Build the (argv, cwd, env-overrides) for an ansible apply/remove.
 
     Pure + unit-testable. Dry-run (check=True) adds ``--check`` so Ansible makes
-    no changes. Roles path and safety settings are passed via environment rather
-    than ansible.cfg, because a repo on a Windows mount (/mnt/*) is world-writable
-    and Ansible will security-ignore an ansible.cfg found there.
+    no changes. ``state`` is 'present' (install) or 'absent' (remove). Roles path
+    and safety settings are passed via environment rather than ansible.cfg, because
+    a repo on a Windows mount (/mnt/*) is world-writable and Ansible will
+    security-ignore an ansible.cfg found there.
     """
-    extra_vars = json.dumps({"devos_core_apt_packages": packages})
+    extra_vars = json.dumps({
+        "devos_profile": profile_name,
+        "devos_apt_packages": packages,
+        "devos_apt_state": state,
+    })
     cmd = [
-        "ansible-playbook", f"playbooks/{profile_name}.yml",
+        "ansible-playbook", "playbooks/apply.yml",
         "-i", "localhost,", "-c", "local",
         "-e", extra_vars,
     ]
@@ -160,42 +171,23 @@ def build_apply_command(
     return cmd, ansible_dir, env
 
 
-def cmd_profile_apply(args: argparse.Namespace) -> int:
-    root = _root()
-    try:
-        profile = engine.load_profile(root, args.name)
-    except engine.EngineError as e:
-        print(f"error: {e}", file=sys.stderr)
-        return EXIT_NOT_FOUND
-
-    errors = schema.validate_profile(profile)
-    if errors:
-        print(f"{args.name}: INVALID — refusing to apply", file=sys.stderr)
-        for err in errors:
-            print(f"  - {err}", file=sys.stderr)
-        return EXIT_VALIDATION
-
-    packages = engine.apt_packages(profile)
-    check = not args.confirm  # dry-run unless explicitly confirmed
-    cmd, cwd, env_overrides = build_apply_command(
-        root, args.name, packages, check=check, ask_become_pass=args.ask_become_pass
-    )
-
-    mode = "DRY RUN (--check): no changes will be made" if check else "APPLY: will modify the system"
-    print(f"profile: {args.name}")
-    print(f"apt packages: {', '.join(packages) or '(none)'}")
+def _run_profile_ansible(root: Path, name: str, packages: list[str], *,
+                         state: str, check: bool, ask_become_pass: bool,
+                         verb: str) -> int:
+    changing = "APPLY" if state == "present" else "REMOVE"
+    mode = (f"DRY RUN (--check): no changes will be made"
+            if check else f"{changing}: will modify the system")
+    print(f"profile: {name}")
+    print(f"apt packages ({state}): {', '.join(packages) or '(none)'}")
     print(f"mode: {mode}")
+    cmd, cwd, env_overrides = build_apply_command(
+        root, name, packages, check=check, state=state, ask_become_pass=ask_become_pass
+    )
     print(f"$ (cd {cwd}) {' '.join(cmd)}")
-
     if shutil.which("ansible-playbook") is None:
-        print(
-            "\nerror: ansible-playbook not found. Install ansible-core first, e.g.:\n"
-            "  sudo apt install -y pipx && pipx install 'ansible-core'\n"
-            "(pin the exact version per provision/ansible/requirements.yml before freezing).",
-            file=sys.stderr,
-        )
+        print("\nerror: ansible-playbook not found. Install it on the target, e.g. "
+              "`sudo apt install -y ansible-core`.", file=sys.stderr)
         return EXIT_ENGINE
-
     import os
     run_env = {**os.environ, **env_overrides}
     try:
@@ -204,6 +196,107 @@ def cmd_profile_apply(args: argparse.Namespace) -> int:
         print(f"error: failed to run ansible-playbook: {e}", file=sys.stderr)
         return EXIT_ENGINE
     return EXIT_OK if rc == 0 else EXIT_PROVISION
+
+
+def _load_valid_profile(root: Path, name: str, action: str):
+    """Return (profile, None) or (None, exit_code) if missing/invalid."""
+    try:
+        profile = engine.load_profile(root, name)
+    except engine.EngineError as e:
+        print(f"error: {e}", file=sys.stderr)
+        return None, EXIT_NOT_FOUND
+    errors = schema.validate_profile(profile)
+    if errors:
+        print(f"{name}: INVALID — refusing to {action}", file=sys.stderr)
+        for err in errors:
+            print(f"  - {err}", file=sys.stderr)
+        return None, EXIT_VALIDATION
+    return profile, None
+
+
+def _warn_binary_tools(profile: dict) -> None:
+    binary = [t.get("name") for t in profile.get("tools", [])
+              if isinstance(t, dict) and t.get("source") == "binary"]
+    if binary:
+        print(f"note: binary-sourced tools are not handled by this apt path and were "
+              f"skipped (pending verified-download support): {', '.join(binary)}")
+
+
+def cmd_profile_apply(args: argparse.Namespace) -> int:
+    root = _root()
+    profile, err = _load_valid_profile(root, args.name, "apply")
+    if err is not None:
+        return err
+    _warn_binary_tools(profile)
+    return _run_profile_ansible(
+        root, args.name, engine.apt_packages(profile),
+        state="present", check=not args.confirm,
+        ask_become_pass=args.ask_become_pass, verb="apply",
+    )
+
+
+def cmd_profile_remove(args: argparse.Namespace) -> int:
+    root = _root()
+    profile, err = _load_valid_profile(root, args.name, "remove")
+    if err is not None:
+        return err
+    # Preserve user data: remove only this profile's apt packages, never autoremove/purge.
+    return _run_profile_ansible(
+        root, args.name, engine.apt_packages(profile),
+        state="absent", check=not args.confirm,
+        ask_become_pass=args.ask_become_pass, verb="remove",
+    )
+
+
+def cmd_drift_check(args: argparse.Namespace) -> int:
+    """Compare declared profile packages against what is installed. Never changes state."""
+    root = _root()
+    profile, err = _load_valid_profile(root, args.name, "drift check")
+    if err is not None:
+        return err
+    packages = engine.apt_packages(profile)
+    if shutil.which("dpkg-query") is None:
+        print("error: dpkg-query not found; run `devos drift check` on the target system.",
+              file=sys.stderr)
+        return EXIT_ENGINE
+    out = subprocess.run(["dpkg-query", "-W", *packages],
+                         capture_output=True, text=True, check=False).stdout
+    installed = engine.parse_dpkg_query(out)
+    missing = [p for p in packages if p not in installed]
+    print(f"drift check: profile '{args.name}' ({len(packages)} declared apt tools)")
+    for p in packages:
+        state = installed.get(p)
+        print(f"  {p:20} {'installed ' + state if state else 'MISSING'}")
+    if missing:
+        print(f"\ndrift detected: {len(missing)} missing — run "
+              f"`devos profile apply {args.name} --confirm` to converge (no auto-correction).")
+        return EXIT_VALIDATION
+    print("\nno drift: all declared tools are installed.")
+    return EXIT_OK
+
+
+def cmd_update_check(args: argparse.Namespace) -> int:
+    """Report available apt updates for a profile's tools. Read-only (simulated)."""
+    root = _root()
+    profile, err = _load_valid_profile(root, args.name, "update check")
+    if err is not None:
+        return err
+    packages = engine.apt_packages(profile)
+    if shutil.which("apt-get") is None:
+        print("error: apt-get not found; run `devos update` on the target system.",
+              file=sys.stderr)
+        return EXIT_ENGINE
+    sim = subprocess.run(["apt-get", "-s", "install", *packages],
+                         capture_output=True, text=True, check=False).stdout
+    upgrades = [ln for ln in sim.splitlines() if ln.startswith("Inst ")]
+    print(f"update check: profile '{args.name}' (simulated; no changes)")
+    if not upgrades:
+        print("  all managed tools are at the latest available version (or already current).")
+        return EXIT_OK
+    for ln in upgrades:
+        print(f"  {ln}")
+    print("\nupdates available. Review, then re-lock with `devos profile lock` after applying.")
+    return EXIT_OK
 
 
 def build_lockfile(
@@ -366,11 +459,32 @@ def build_parser() -> argparse.ArgumentParser:
                      help="prompt for the sudo/become password")
     app.set_defaults(func=cmd_profile_apply)
 
+    rmp = pfsub.add_parser(
+        "remove", help="remove a profile's apt packages (dry-run unless --confirm; preserves data)"
+    )
+    rmp.add_argument("name")
+    rmp.add_argument("--confirm", action="store_true",
+                     help="actually remove (default is a --check dry run)")
+    rmp.add_argument("--ask-become-pass", action="store_true",
+                     help="prompt for the sudo/become password")
+    rmp.set_defaults(func=cmd_profile_remove)
+
     lck = pfsub.add_parser(
         "lock", help="resolve installed versions into locks/<name>.lock.json (run on target)"
     )
     lck.add_argument("name")
     lck.set_defaults(func=cmd_profile_lock)
+
+    dr = sub.add_parser("drift", help="check declared vs installed state")
+    drsub = dr.add_subparsers(dest="subcommand")
+    drc = drsub.add_parser("check", help="report missing tools for a profile (no changes)")
+    drc.add_argument("--profile", default="core", help="profile name (default: core)")
+    drc.set_defaults(func=lambda a: cmd_drift_check(_as_name(a)))
+
+    upd = sub.add_parser("update", help="check for available updates to managed tools (read-only)")
+    upd.add_argument("--profile", default="core", help="profile name (default: core)")
+    upd.add_argument("--check", action="store_true", help="simulate only (default behavior)")
+    upd.set_defaults(func=lambda a: cmd_update_check(_as_name(a)))
 
     pt = sub.add_parser("tools", help="inspect managed tools")
     ptsub = pt.add_subparsers(dest="subcommand")

@@ -1,0 +1,27 @@
+---
+- name: Assert a package list was provided by devos
+  ansible.builtin.assert:
+    that:
+      - devos_apt_packages is iterable
+      - devos_apt_packages | length > 0
+    fail_msg: >-
+      devos_apt_packages is empty. The devos CLI passes the profile's apt tools via
+      --extra-vars. Do not run this role directly.
+
+- name: "Ensure core apt packages are {{ devos_apt_state }} (profile={{ devos_profile }})"
+  become: true
+  ansible.builtin.apt:
+    name: "{{ devos_apt_packages }}"
+    state: "{{ devos_apt_state }}"
+    update_cache: "{{ devos_apt_state == 'present' }}"
+    cache_valid_time: 3600
+    # Never autoremove on removal: preserve shared deps and user data by default.
+    autoremove: false
+    purge: false
+  register: devos_apt_result
+
+- name: Report result
+  ansible.builtin.debug:
+    msg: >-
+      profile '{{ devos_profile }}': packages {{ devos_apt_state }} —
+      {{ devos_apt_packages | join(', ') }}

@@ -44,6 +44,24 @@ class TestCli(unittest.TestCase):
         code, text = run(["profile", "validate", "--all"])
         self.assertEqual(code, cli.EXIT_OK, msg=text)
         self.assertIn("core: valid", text)
+        self.assertIn("containers: valid", text)
+
+    def test_profile_list_includes_containers(self):
+        code, text = run(["profile", "list"])
+        self.assertEqual(code, cli.EXIT_OK)
+        self.assertIn("containers", text)
+
+    def test_apply_missing_profile_not_found(self):
+        code, _ = run(["profile", "apply", "ghost"])
+        self.assertEqual(code, cli.EXIT_NOT_FOUND)
+
+    def test_remove_missing_profile_not_found(self):
+        code, _ = run(["profile", "remove", "ghost"])
+        self.assertEqual(code, cli.EXIT_NOT_FOUND)
+
+    def test_drift_missing_profile_not_found(self):
+        code, _ = run(["drift", "check", "--profile", "ghost"])
+        self.assertEqual(code, cli.EXIT_NOT_FOUND)
 
     def test_validate_missing_profile_not_found(self):
         code, _ = run(["profile", "validate", "nope"])

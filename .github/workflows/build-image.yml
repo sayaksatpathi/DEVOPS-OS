@@ -402,3 +402,13 @@ jobs:
         run: sudo -E bash image/build-cloud-image.sh "core"
       - name: OS upgrade + reboot test
         run: sudo -E bash image/upgrade-test.sh
+      - name: Upload upgrade serial log
+        if: always()
+        run: sudo chown -R "$USER" image/out 2>/dev/null || true
+      - name: Save serial artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: upgrade-serial-log
+          path: image/out/upgrade-serial.log
+          if-no-files-found: warn

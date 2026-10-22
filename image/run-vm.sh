@@ -15,8 +15,15 @@ out="$(cd "$(dirname "$img")" && pwd)"
 # successful boot proves the Ubuntu-signed chain works under Secure Boot.
 if [ "${SECBOOT:-0}" = "1" ]; then
   code="$(ls /usr/share/OVMF/OVMF_CODE_4M.secboot.fd /usr/share/OVMF/OVMF_CODE.secboot.fd 2>/dev/null | head -1 || true)"
-  varstpl="$(ls /usr/share/OVMF/OVMF_VARS_4M.ms.fd /usr/share/OVMF/OVMF_VARS.ms.fd /usr/share/OVMF/OVMF_VARS_4M.fd 2>/dev/null | head -1 || true)"
-  echo "Secure Boot mode: code=$code vars=$varstpl"
+  # Require MS-keys-ENROLLED vars so Secure Boot is actually enforced (no false pass with
+  # empty key DB). Search broadly; fail clearly if enrolled-key vars are unavailable.
+  varstpl="$(ls /usr/share/OVMF/OVMF_VARS_4M.ms.fd /usr/share/OVMF/OVMF_VARS.ms.fd 2>/dev/null | head -1 || true)"
+  [ -n "$varstpl" ] || varstpl="$(find /usr/share/OVMF /usr/share/ovmf /usr/share/qemu -name '*VARS*ms*.fd' 2>/dev/null | head -1 || true)"
+  if [ -z "$varstpl" ]; then
+    echo "ERROR: Secure Boot vars with enrolled keys (*.ms.fd) not found — refusing to report a non-enforced SB pass"
+    exit 1
+  fi
+  echo "Secure Boot mode (ENROLLED keys): code=$code vars=$varstpl"
 else
   code="$(ls /usr/share/OVMF/OVMF_CODE_4M.fd /usr/share/OVMF/OVMF_CODE.fd 2>/dev/null | head -1 || true)"
   varstpl="$(ls /usr/share/OVMF/OVMF_VARS_4M.fd /usr/share/OVMF/OVMF_VARS.fd 2>/dev/null | head -1 || true)"

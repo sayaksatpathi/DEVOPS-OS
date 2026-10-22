@@ -94,12 +94,18 @@ jobs:
           echo "deb [signed-by=/usr/share/keyrings/trivy.gpg] https://aquasecurity.github.io/trivy-repo/deb generic main" \
             | sudo tee /etc/apt/sources.list.d/trivy.list
           sudo apt-get update && sudo apt-get install -y trivy
+          trivy --version
+          echo "CVE scan starting $(date -u)" > image/out/trivy-vuln.txt
           sudo trivy vm --scanners vuln --severity HIGH,CRITICAL --no-progress \
-            --format table image/out/devos.qcow2 | tee image/out/trivy-vuln.txt || true
+            --format table image/out/devos.qcow2 >> image/out/trivy-vuln.txt 2>&1 \
+            || echo "(trivy vuln scan exited non-zero; see above)" >> image/out/trivy-vuln.txt
+          echo "License scan starting $(date -u)" > image/out/trivy-license.txt
           sudo trivy vm --scanners license --no-progress \
-            --format table image/out/devos.qcow2 | tee image/out/trivy-license.txt || true
-          echo "## CVE summary (HIGH/CRITICAL)" >> "$GITHUB_STEP_SUMMARY"
-          grep -E "Total:|CRITICAL|HIGH" image/out/trivy-vuln.txt | head -5 >> "$GITHUB_STEP_SUMMARY" || true
+            --format table image/out/devos.qcow2 >> image/out/trivy-license.txt 2>&1 \
+            || echo "(trivy license scan exited non-zero; see above)" >> image/out/trivy-license.txt
+          sudo chown "$USER" image/out/trivy-*.txt || true
+          echo "=== trivy reports ==="; ls -la image/out/trivy-*.txt
+          { echo "## CVE scan (HIGH/CRITICAL)"; grep -iE "Total:|CRITICAL|HIGH" image/out/trivy-vuln.txt | head -5; } >> "$GITHUB_STEP_SUMMARY" || true
 
       - name: Fix artifact ownership
         if: always()

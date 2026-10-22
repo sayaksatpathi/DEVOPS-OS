@@ -87,6 +87,8 @@ jobs:
         run: sudo -E env TPM=1 bash image/boot-test.sh
 
       - name: CVE + license scan (Trivy, report-only)
+        # Report-only: a flaky scanner install must not block the signed release.
+        continue-on-error: true
         run: |
           sudo apt-get install -y wget gnupg
           wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key \

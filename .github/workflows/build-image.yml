@@ -121,14 +121,19 @@ jobs:
 
       - name: CVE scan (Trivy on SBOM — reliable, report-only)
         continue-on-error: true
-        uses: aquasecurity/trivy-action@0.28.0
-        with:
-          scan-type: sbom
-          scan-ref: image/out/devos.sbom.cdx.json
-          format: table
-          output: image/out/trivy-vuln.txt
-          severity: HIGH,CRITICAL
-          exit-code: "0"
+        run: |
+          TRIVY_VER=0.58.0
+          base="https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VER}"
+          curl -fsSL "$base/trivy_${TRIVY_VER}_Linux-64bit.tar.gz" -o /tmp/trivy.tgz
+          curl -fsSL "$base/trivy_${TRIVY_VER}_checksums.txt" -o /tmp/trivy.sums
+          want="$(grep 'Linux-64bit.tar.gz' /tmp/trivy.sums | awk '{print $1}' | head -1)"
+          echo "${want}  /tmp/trivy.tgz" | sha256sum -c -
+          tar xzf /tmp/trivy.tgz -C /tmp trivy
+          echo "CVE scan $(date -u)" > image/out/trivy-vuln.txt
+          /tmp/trivy sbom --scanners vuln --severity HIGH,CRITICAL --no-progress \
+            --format table image/out/devos.sbom.cdx.json >> image/out/trivy-vuln.txt 2>&1 \
+            || echo "(trivy scan exited non-zero)" >> image/out/trivy-vuln.txt
+          echo "=== report ==="; tail -15 image/out/trivy-vuln.txt
 
       - name: CVE summary
         if: always()

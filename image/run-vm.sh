@@ -17,7 +17,7 @@ varstpl="$(ls /usr/share/OVMF/OVMF_VARS_4M.fd /usr/share/OVMF/OVMF_VARS.fd 2>/de
 
 vars="$out/OVMF_VARS.fd"; cp -f "$varstpl" "$vars"
 log="$out/serial.log"; : > "$log"
-accel="tcg"; [ -w /dev/kvm ] && accel="kvm:tcg"
+accel="tcg"; [ -w /dev/kvm ] && accel="kvm"   # -accel takes a single value, not kvm:tcg
 echo "booting $(basename "$img") (accel=$accel, timeout=${tmo}s), waiting for /$marker/"
 
 timeout "$tmo" qemu-system-x86_64 \

@@ -40,7 +40,7 @@ echo "${want}  $out/$BASE_FILE" | sha256sum -c -
 echo "== [3/6] copy DevOS source into the image (offline) =="
 tar czf "$out/devos-src.tar.gz" --exclude=.git --exclude='image/out' .
 cp "$out/$BASE_FILE" "$out/devos.qcow2"
-qemu-img resize "$out/devos.qcow2" +6G
+qemu-img resize "$out/devos.qcow2" +3G
 export LIBGUESTFS_BACKEND="${LIBGUESTFS_BACKEND:-direct}"
 virt-customize -a "$out/devos.qcow2" \
   --copy-in "$out/devos-src.tar.gz:/opt" \
@@ -59,7 +59,9 @@ virt-customize -a "$out/devos.qcow2" --run-command 'cloud-init clean --logs || t
 virt-sysprep -a "$out/devos.qcow2" \
   --operations machine-id,ssh-hostkeys,logfiles,tmp-files,bash-history,crash-data
 
-echo "== [6/6] finalize =="
+echo "== [6/6] finalize (compress to fit release asset limits + smaller download) =="
+qemu-img convert -O qcow2 -c "$out/devos.qcow2" "$out/devos.final.qcow2"
+mv -f "$out/devos.final.qcow2" "$out/devos.qcow2"
 qemu-img info "$out/devos.qcow2"
 ( cd "$out" && sha256sum devos.qcow2 | tee devos.qcow2.sha256 )
 echo "built: $out/devos.qcow2"

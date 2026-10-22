@@ -76,14 +76,18 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          set -x
           ver="${GITHUB_REF_NAME}"
           asset="image/out/devos-${ver}-amd64.qcow2"
-          cp image/out/devos.qcow2 "$asset"
+          # Fresh-compress the finished image so the release asset is small and under
+          # GitHub's 2 GiB per-asset limit.
+          qemu-img convert -O qcow2 -c image/out/devos.qcow2 "$asset"
           ( cd image/out && sha256sum "devos-${ver}-amd64.qcow2" > "devos-${ver}-amd64.qcow2.sha256" )
-          gh release create "$ver" \
-            "$asset" "image/out/devos-${ver}-amd64.qcow2.sha256" \
-            --prerelease \
-            --title "DevOS ${ver} (experimental)" \
-            --notes-file image/release-notes.md \
-          || gh release upload "$ver" \
+          ls -lh "$asset"; echo "asset bytes: $(stat -c%s "$asset")"
+          # Create the release if it doesn't exist yet, then upload (idempotent).
+          gh release view "$ver" >/dev/null 2>&1 || \
+            gh release create "$ver" --prerelease \
+              --title "DevOS ${ver} (experimental)" \
+              --notes-file image/release-notes.md
+          gh release upload "$ver" \
             "$asset" "image/out/devos-${ver}-amd64.qcow2.sha256" --clobber

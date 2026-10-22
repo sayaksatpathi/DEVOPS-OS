@@ -122,7 +122,7 @@ jobs:
       - name: CVE scan (Trivy on SBOM — reliable, report-only)
         continue-on-error: true
         run: |
-          TRIVY_VER=0.58.0
+          TRIVY_VER=0.76.1
           base="https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VER}"
           curl -fsSL "$base/trivy_${TRIVY_VER}_Linux-64bit.tar.gz" -o /tmp/trivy.tgz
           curl -fsSL "$base/trivy_${TRIVY_VER}_checksums.txt" -o /tmp/trivy.sums

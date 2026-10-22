@@ -18,13 +18,25 @@ Include, where possible:
 - Affected version / commit
 - Any suggested remediation
 
-## What to expect
+## What to expect (target SLA)
 
-- **Acknowledgement:** we aim to acknowledge reports within a reasonable window (best
-  effort while the project is maintained by volunteers — we will not promise a time we
-  cannot meet).
-- **Triage:** we assess severity, confirm, and plan a fix.
-- **Disclosure:** coordinated. We will credit reporters who wish to be credited.
+These are the **targets** once the project has ≥2 security maintainers (see MAINTAINERS.md).
+Until then they are best-effort and **not guaranteed** — a single volunteer cannot commit to
+them, which is exactly why a *funded* SLA + co-maintainers is a hard gate to a Stable release
+(docs/release-readiness.md, gap #8).
+
+| Severity | Acknowledge | Triage/assess | Fix target |
+|---|---|---|---|
+| Critical (RCE, priv-esc, key compromise) | 2 business days | 5 business days | 14 days |
+| High | 3 business days | 10 business days | 30 days |
+| Medium | 5 business days | 20 business days | next release |
+| Low | best-effort | best-effort | backlog |
+
+- **Disclosure:** coordinated; we credit reporters who wish to be credited.
+- **Emergency / compromised-key procedure:** revoke, rotate (keyless Sigstore means no long-lived
+  key to leak today), publish an advisory, and cut a patched signed release.
+- **Honest caveat:** these targets become real commitments only when funded maintainer capacity
+  exists. We will not advertise an SLA we cannot staff.
 
 ## Scope of particular concern
 

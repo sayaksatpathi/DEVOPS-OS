@@ -133,6 +133,11 @@ jobs:
           /tmp/trivy sbom --scanners vuln --severity HIGH,CRITICAL --no-progress \
             --format table image/out/devos.sbom.cdx.json >> image/out/trivy-vuln.txt 2>&1 \
             || echo "(trivy scan exited non-zero)" >> image/out/trivy-vuln.txt
+          # License inventory (gap #5) from the SBOM — human sign-off still required.
+          echo "License inventory $(date -u)" > image/out/licenses.txt
+          /tmp/trivy sbom --scanners license --no-progress \
+            --format table image/out/devos.sbom.cdx.json >> image/out/licenses.txt 2>&1 \
+            || echo "(license scan exited non-zero)" >> image/out/licenses.txt
           echo "=== report ==="; tail -15 image/out/trivy-vuln.txt
 
       - name: CVE summary
@@ -232,7 +237,7 @@ jobs:
           ver="${GITHUB_REF_NAME}"
           sbom="image/out/devos-${ver}.sbom.cdx.json"
           cp -f image/out/devos.sbom.cdx.json "$sbom" 2>/dev/null || true
-          for f in "$sbom" image/out/packages.tsv image/out/trivy-vuln.txt; do
+          for f in "$sbom" image/out/packages.tsv image/out/trivy-vuln.txt image/out/licenses.txt; do
             [ -f "$f" ] && gh release upload "$ver" "$f" --clobber || true
           done
 

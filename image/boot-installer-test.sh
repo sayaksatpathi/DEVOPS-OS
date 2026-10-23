@@ -20,8 +20,9 @@ qemu-img create -f qcow2 "$out/target.qcow2" 16G >/dev/null
 
 accel="tcg"; [ -w /dev/kvm ] && accel="kvm"
 log="$out/installer-serial.log"; : > "$log"
-# Encrypted LVM install (LUKS argon2 KDF) + in-target provisioning is heavier; give it more time.
-tmo=3000; [ "${FDE:-0}" = "1" ] && tmo=5400
+# Encrypted LVM install is heavier, but keep the install phase within the job's 110-min cap
+# so the serial log is always uploaded (cancellation skips the upload step).
+tmo=3000; [ "${FDE:-0}" = "1" ] && tmo=4200
 echo "booting installer ISO (accel=$accel, timeout=${tmo}s), waiting for DEVOS_INSTALL_OK"
 timeout "$tmo" qemu-system-x86_64 \
   -machine q35 -accel "$accel" -cpu max -m 4096 -smp 2 \

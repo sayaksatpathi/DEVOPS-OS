@@ -84,9 +84,14 @@ grep -q "DEVOS_CONTAINER_RUN_OK" "$out/serial.log" && echo "container run: OK" \
   || echo "note: container-run marker not seen (profile may lack podman, or registry unreachable)"
 
 echo "== [5/6] image hygiene (clear cloud-init state, reset machine identity) =="
-virt-customize -a "$out/devos.qcow2" --run-command 'cloud-init clean --logs || true'
+virt-customize -a "$out/devos.qcow2" \
+  --run-command 'cloud-init clean --logs || true' \
+  --run-command 'rm -f /opt/devos-src.tar.gz'   # remove builder source tarball (keep /opt/devos)
 virt-sysprep -a "$out/devos.qcow2" \
   --operations machine-id,ssh-hostkeys,logfiles,tmp-files,bash-history,crash-data
+
+echo "== [5b/6] VERIFY image hygiene (prove no identity/secrets leak) =="
+bash image/verify-hygiene.sh "$out/devos.qcow2"
 
 echo "== [6/6] finalize (compress to fit release asset limits + smaller download) =="
 qemu-img convert -O qcow2 -c "$out/devos.qcow2" "$out/devos.final.qcow2"

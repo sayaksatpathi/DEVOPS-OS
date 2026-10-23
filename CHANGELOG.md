@@ -172,3 +172,10 @@ planning/audit work, not shipped software.
 - SB boot test now requires DEVOS_SECUREBOOT_ENFORCED — emitted only when `mokutil --sb-state`
   reports "SecureBoot enabled" inside the booted guest. Upgrades #6 from "boots under secboot
   firmware" to "SB enforcing with a signed kernel, confirmed in-guest". Verified green.
+
+#### 2026-10-23 — Desktop render verified (#9) + image-hygiene verification (§11)
+- #9 CLOSED: desktop image boots and gnome-shell greeter actually runs on a virtio GPU
+  (DEVOS_DESKTOP_RENDER_OK) — real render proof, not just binary presence.
+- §11 image-hygiene VERIFICATION (was only asserted): image/verify-hygiene.sh scans the built
+  qcow2 offline and FAILS the build on any leak — machine-id, SSH host keys, bash history,
+  builder source tarball, or root authorized_keys. Also removes /opt/devos-src.tar.gz.

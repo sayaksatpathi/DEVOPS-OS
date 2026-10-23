@@ -53,27 +53,74 @@ echo "INSTALLER TEST PASSED: unattended install completed and DevOS tools are pr
 echo "== second boot: verify the INSTALLED system boots to a login prompt =="
 # Reuse the same OVMF_VARS (it holds the boot entry the installer wrote), boot the target
 # disk WITHOUT the ISO, and confirm the installed Ubuntu reaches a login prompt.
+# For an FDE install (#10), the disk is LUKS-encrypted, so the boot stops at a passphrase
+# prompt on the serial; we inject the passphrase over a bidirectional pipe and then prove
+# the system unlocks and reaches login.
 ilog="$out/installed-serial.log"; : > "$ilog"
-timeout 420 qemu-system-x86_64 \
-  -machine q35 -accel "$accel" -cpu max -m 2048 -smp 2 \
-  -drive if=pflash,format=raw,readonly=on,file="$code" \
-  -drive if=pflash,format=raw,file="$out/OVMF_VARS.fd" \
-  -drive file="$out/target.qcow2",if=virtio,format=qcow2 \
-  -netdev user,id=n0 -device virtio-net-pci,netdev=n0 \
-  -display none -serial file:"$ilog" &
-ip=$!
-lok=0
-for _ in $(seq 1 42); do
-  if grep -qE "devos login:|login:" "$ilog" 2>/dev/null; then lok=1; break; fi
-  kill -0 "$ip" 2>/dev/null || break
-  sleep 10
-done
-kill "$ip" 2>/dev/null || true; wait "$ip" 2>/dev/null || true
-echo "---- installed-system serial tail ----"; tail -30 "$ilog" 2>/dev/null || true
-echo "--------------------------------------"
-if [ "$lok" = 1 ]; then
-  echo "REBOOT->LOGIN PASSED: the installed DevOS system boots to a login prompt."
+LUKSPASS="devos-luks-changeme"
+
+if [ "${FDE:-0}" = "1" ]; then
+  echo "FDE mode: will inject LUKS passphrase at the boot prompt"
+  rm -f "$out/con.in" "$out/con.out"; mkfifo "$out/con.in" "$out/con.out"
+  # Guest output -> log
+  ( cat "$out/con.out" > "$ilog" ) &
+  catp=$!
+  # Hold the input pipe open; inject the passphrase once the prompt appears, unlocked=1 on success.
+  ( exec 9>"$out/con.in"
+    injected=0
+    for _ in $(seq 1 60); do
+      if [ "$injected" = 0 ] && grep -qiE "enter passphrase|passphrase for|unlock" "$ilog" 2>/dev/null; then
+        printf '%s\n' "$LUKSPASS" >&9; injected=1
+        echo "DEVOS_FDE_PASSPHRASE_SENT" >> "$ilog"
+      fi
+      sleep 3
+    done ) &
+  injp=$!
+  timeout 480 qemu-system-x86_64 \
+    -machine q35 -accel "$accel" -cpu max -m 2048 -smp 2 \
+    -drive if=pflash,format=raw,readonly=on,file="$code" \
+    -drive if=pflash,format=raw,file="$out/OVMF_VARS.fd" \
+    -drive file="$out/target.qcow2",if=virtio,format=qcow2 \
+    -netdev user,id=n0 -device virtio-net-pci,netdev=n0 \
+    -display none -serial pipe:"$out/con" &
+  ip=$!
+  lok=0
+  for _ in $(seq 1 48); do
+    if grep -qE "devos login:|login:" "$ilog" 2>/dev/null; then lok=1; break; fi
+    kill -0 "$ip" 2>/dev/null || break
+    sleep 10
+  done
+  kill "$ip" "$catp" "$injp" 2>/dev/null || true; wait "$ip" 2>/dev/null || true
+  echo "---- installed-system serial tail ----"; tail -40 "$ilog" 2>/dev/null || true
+  echo "--------------------------------------"
+  if [ "$lok" = 1 ] && grep -q "DEVOS_FDE_PASSPHRASE_SENT" "$ilog" 2>/dev/null; then
+    echo "FDE UNLOCK PASSED: LUKS passphrase accepted and the encrypted system booted to login."
+  else
+    echo "FDE UNLOCK FAILED: encrypted system did not unlock+reach login."
+    exit 1
+  fi
 else
-  echo "REBOOT->LOGIN FAILED: installed system did not reach a login prompt."
-  exit 1
+  timeout 420 qemu-system-x86_64 \
+    -machine q35 -accel "$accel" -cpu max -m 2048 -smp 2 \
+    -drive if=pflash,format=raw,readonly=on,file="$code" \
+    -drive if=pflash,format=raw,file="$out/OVMF_VARS.fd" \
+    -drive file="$out/target.qcow2",if=virtio,format=qcow2 \
+    -netdev user,id=n0 -device virtio-net-pci,netdev=n0 \
+    -display none -serial file:"$ilog" &
+  ip=$!
+  lok=0
+  for _ in $(seq 1 42); do
+    if grep -qE "devos login:|login:" "$ilog" 2>/dev/null; then lok=1; break; fi
+    kill -0 "$ip" 2>/dev/null || break
+    sleep 10
+  done
+  kill "$ip" 2>/dev/null || true; wait "$ip" 2>/dev/null || true
+  echo "---- installed-system serial tail ----"; tail -30 "$ilog" 2>/dev/null || true
+  echo "--------------------------------------"
+  if [ "$lok" = 1 ]; then
+    echo "REBOOT->LOGIN PASSED: the installed DevOS system boots to a login prompt."
+  else
+    echo "REBOOT->LOGIN FAILED: installed system did not reach a login prompt."
+    exit 1
+  fi
 fi

@@ -319,7 +319,9 @@ jobs:
         env:
           FDE: ${{ github.event.inputs.fde == 'yes' && '1' || '0' }}
         run: sudo -E bash image/build-installer-iso.sh "core"
-      - name: Installer boot test (QEMU / UEFI, unattended install)
+      - name: Installer boot test (QEMU / UEFI, unattended install + FDE unlock)
+        env:
+          FDE: ${{ github.event.inputs.fde == 'yes' && '1' || '0' }}
         run: sudo -E bash image/boot-installer-test.sh
       - name: Fix artifact ownership
         if: always()

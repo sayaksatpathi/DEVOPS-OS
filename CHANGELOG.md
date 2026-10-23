@@ -194,3 +194,7 @@ planning/audit work, not shipped software.
 #### 2026-10-23 — #10 FDE unlock test (last critical hole)
 - Installed-system boot for an FDE install injects the LUKS passphrase over a bidirectional
   serial pipe and asserts the encrypted disk unlocks and reaches login (FDE UNLOCK PASSED).
+
+#### 2026-10-23 — §5 corporate-CA trust
+- devos_ca role: system CA bundle made authoritative for Node/Python/curl/git/Rust via
+  /etc/profile.d; installs admin-provided CA certs. Applied to every image.

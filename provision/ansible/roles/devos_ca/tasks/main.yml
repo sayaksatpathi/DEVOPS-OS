@@ -1,0 +1,27 @@
+---
+# §5 corporate-CA trust: make the system CA bundle authoritative for language runtimes, and
+# install any admin-provided CA certs into the trust store. No-op if no certs are provided.
+- name: Ensure ca-certificates present
+  become: true
+  ansible.builtin.apt: { name: ca-certificates, state: present, update_cache: false }
+
+- name: Install admin-provided CA certs (if any) into the trust store
+  become: true
+  ansible.builtin.copy:
+    src: "{{ item }}"
+    dest: "/usr/local/share/ca-certificates/{{ item | basename }}"
+    mode: "0644"
+  loop: "{{ devos_ca_certs | default([]) }}"
+  register: devos_ca_added
+
+- name: Update the system trust store
+  become: true
+  ansible.builtin.command: update-ca-certificates
+  changed_when: devos_ca_added is changed
+
+- name: Point runtimes at the system CA bundle (profile.d)
+  become: true
+  ansible.builtin.copy:
+    src: devos-ca.sh
+    dest: /etc/profile.d/devos-ca.sh
+    mode: "0644"

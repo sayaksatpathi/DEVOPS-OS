@@ -6,3 +6,4 @@
   gather_facts: true
   roles:
     - devos_hardening
+    - devos_ca

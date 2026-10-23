@@ -24,6 +24,7 @@ autoinstall:
     layout:
       name: lvm
       password: "__LUKSPASS__"
+      sizing-policy: all   # expand root LV to fill the VG (default leaves free space -> ENOSPC)
   late-commands:
     - "echo DEVOS_INSTALL_START_FDE > /dev/ttyS0"
     # warmup: ensure the (decrypted) target is mounted and writable, like the non-FDE path

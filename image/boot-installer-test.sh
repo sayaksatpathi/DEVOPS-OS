@@ -16,7 +16,9 @@ varstpl="$(ls /usr/share/OVMF/OVMF_VARS_4M.fd /usr/share/OVMF/OVMF_VARS.fd 2>/de
 cp -f "$varstpl" "$out/OVMF_VARS.fd"
 
 # blank target disk the installer writes to (disposable)
-qemu-img create -f qcow2 "$out/target.qcow2" 16G >/dev/null
+# FDE (encrypted LVM) needs more headroom; non-FDE is fine at 16G.
+tgt_size=16G; [ "${FDE:-0}" = "1" ] && tgt_size=24G
+qemu-img create -f qcow2 "$out/target.qcow2" "$tgt_size" >/dev/null
 
 accel="tcg"; [ -w /dev/kvm ] && accel="kvm"
 log="$out/installer-serial.log"; : > "$log"

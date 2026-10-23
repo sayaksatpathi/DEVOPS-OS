@@ -82,3 +82,15 @@ class TestCli(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestDiag(unittest.TestCase):
+    def test_diag_runs_and_redacts(self):
+        from devos import engine
+        self.assertEqual(engine.redact_secrets("password: hunter2"), "[REDACTED]")
+        self.assertEqual(engine.redact_secrets("token=abc123"), "[REDACTED]")
+        self.assertIn("[REDACTED]", engine.redact_secrets("ghp_" + "a"*24))
+        self.assertEqual(engine.redact_secrets("ordinary text"), "ordinary text")
+        code, text = run(["diag"])
+        self.assertEqual(code, cli.EXIT_OK)
+        self.assertIn("devos", text)

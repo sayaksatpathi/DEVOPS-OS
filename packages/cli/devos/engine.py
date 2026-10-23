@@ -120,6 +120,26 @@ def binary_tools(profile: dict) -> list[dict]:
             if isinstance(t, dict) and t.get("source") == "binary"]
 
 
+import re as _re
+
+_SECRET_PATTERNS = [
+    _re.compile(r'(?i)(password|passwd|secret|token|api[_-]?key|bearer)\s*[:=]\s*\S+'),
+    _re.compile(r'(?i)(aws_)?(secret_)?access_key_id?\s*[:=]\s*\S+'),
+    _re.compile(r'gh[pousr]_[A-Za-z0-9]{20,}'),
+    _re.compile(r'AKIA[0-9A-Z]{16}'),
+    _re.compile(r'-----BEGIN [A-Z ]*PRIVATE KEY-----'),
+    _re.compile(r'(?i)\beyJ[A-Za-z0-9_-]{10,}\b'),  # JWT-ish
+]
+
+
+def redact_secrets(text: str) -> str:
+    """Redact obvious secrets from diagnostic text (§6.14). Best-effort, not a guarantee."""
+    out = text
+    for pat in _SECRET_PATTERNS:
+        out = pat.sub("[REDACTED]", out)
+    return out
+
+
 def parse_dpkg_query(output: str) -> dict[str, str]:
     """Parse `dpkg-query -W pkg...` output (``name\\tversion`` per line).
 

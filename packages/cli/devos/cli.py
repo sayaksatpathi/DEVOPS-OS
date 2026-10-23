@@ -542,6 +542,42 @@ def cmd_profile_lock(args: argparse.Namespace) -> int:
     return EXIT_OK if resolved == total else EXIT_VALIDATION
 
 
+def cmd_diag(args: argparse.Namespace) -> int:
+    """Collect a secret-redacted diagnostic bundle (§6.14). Read-only."""
+    import platform, os
+    root = _root()
+    sections = []
+    sections.append(("devos", f"version {__version__}\nroot {root}"))
+    sections.append(("system", f"{platform.platform()}\npython {platform.python_version()}"))
+    try:
+        sections.append(("os-release", Path("/etc/os-release").read_text(encoding="utf-8")))
+    except OSError:
+        pass
+    sections.append(("profiles", "\n".join(engine.list_profiles(root)) or "(none)"))
+    for cmd, label in ((["df", "-h"], "disk"), (["free", "-h"], "memory")):
+        if shutil.which(cmd[0]):
+            try:
+                sections.append((label, subprocess.run(cmd, capture_output=True, text=True,
+                                                       check=False).stdout))
+            except OSError:
+                pass
+    if shutil.which("journalctl"):
+        try:
+            jl = subprocess.run(["journalctl", "-b", "-p", "err", "--no-pager", "-n", "50"],
+                                capture_output=True, text=True, check=False).stdout
+            sections.append(("journal-errors", jl))
+        except OSError:
+            pass
+    bundle = "\n".join(f"===== {name} =====\n{engine.redact_secrets(body)}"
+                       for name, body in sections)
+    if args.out:
+        Path(args.out).write_text(bundle + "\n", encoding="utf-8")
+        print(f"wrote redacted diagnostic bundle to {args.out}")
+    else:
+        print(bundle)
+    return EXIT_OK
+
+
 def cmd_tools_list(args: argparse.Namespace) -> int:
     root = _root()
     name = args.profile
@@ -632,6 +668,10 @@ def build_parser() -> argparse.ArgumentParser:
     drc = drsub.add_parser("check", help="report missing tools for a profile (no changes)")
     drc.add_argument("--profile", default="core", help="profile name (default: core)")
     drc.set_defaults(func=lambda a: cmd_drift_check(_as_name(a)))
+
+    dg = sub.add_parser("diag", help="collect a secret-redacted diagnostic bundle (read-only)")
+    dg.add_argument("--out", help="write the bundle to a file instead of stdout")
+    dg.set_defaults(func=cmd_diag)
 
     upd = sub.add_parser("update", help="check for available updates (read-only)")
     upd.add_argument("--profile", default="core", help="profile name (default: core)")

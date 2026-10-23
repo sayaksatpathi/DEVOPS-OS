@@ -203,3 +203,7 @@ planning/audit work, not shipped software.
 - §1: `kubernetes` profile (kubectl) via cosign blob verification; new blob-verify mode.
 - §8: DEVOS_APT_SNAPSHOT build option pins apt to snapshot.ubuntu.com (deb822 Snapshot) for
   strict, time-stable reproducibility. Default is a no-op.
+
+#### 2026-10-23 — §4 SSD TRIM + §3 GRUB defaults
+- §4: enable fstrim.timer (periodic SSD TRIM) in baseline.
+- §3: GRUB defaults drop-in (visible menu, recovery entries kept) + update-grub.

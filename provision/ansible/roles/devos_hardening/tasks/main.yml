@@ -97,6 +97,29 @@
     - name: auditd unavailable — note and continue
       ansible.builtin.debug: { msg: "auditd not installed (archive/network); continuing" }
 
+- name: "§4 storage: enable periodic SSD TRIM (fstrim.timer)"
+  become: true
+  ansible.builtin.systemd: { name: fstrim.timer, enabled: true, state: started }
+  failed_when: false
+
+- name: "§3 boot: GRUB defaults (visible menu, recovery kept)"
+  become: true
+  ansible.builtin.copy:
+    dest: /etc/default/grub.d/99-devos.cfg
+    mode: "0644"
+    content: |
+      GRUB_TIMEOUT=5
+      GRUB_TIMEOUT_STYLE=menu
+      GRUB_DISABLE_RECOVERY=false
+  register: devos_grub
+
+- name: "§3 boot: regenerate grub config"
+  become: true
+  ansible.builtin.command: update-grub
+  changed_when: false
+  failed_when: false
+  when: devos_grub.changed
+
 - name: Record hardening marker
   become: true
   ansible.builtin.copy:

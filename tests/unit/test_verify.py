@@ -35,7 +35,7 @@ class TestInstallPolicy(unittest.TestCase):
         ok, reason = verify.install_allowed(
             {"method": "upstream-signature", "checksum": "sha256:abc"})
         self.assertFalse(ok)
-        self.assertIn("missing material", reason)
+        self.assertIn("would be TOFU", reason)
 
     def test_signature_with_full_material_allowed(self):
         ok, _ = verify.install_allowed({
@@ -44,6 +44,22 @@ class TestInstallPolicy(unittest.TestCase):
             "certIdentityRegexp": "r", "certOidcIssuer": "i",
         })
         self.assertTrue(ok)
+
+    def test_signature_blob_mode_allowed(self):
+        ok, reason = verify.install_allowed({
+            "method": "upstream-signature", "checksum": "sha256:abc",
+            "blobSigUrl": "u", "blobCertUrl": "u",
+            "certIdentityRegexp": "r", "certOidcIssuer": "i",
+        })
+        self.assertTrue(ok)
+        self.assertIn("blob", reason)
+
+    def test_signature_blob_without_identity_refused(self):
+        ok, _ = verify.install_allowed({
+            "method": "upstream-signature", "checksum": "sha256:abc",
+            "blobSigUrl": "u", "blobCertUrl": "u",
+        })
+        self.assertFalse(ok)
 
     def test_checksum_only_without_method_rejected(self):
         ok, _ = verify.install_allowed({"checksum": "sha256:abc"})

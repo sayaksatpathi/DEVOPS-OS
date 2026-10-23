@@ -245,8 +245,12 @@ def gate_binary_tools(profile: dict) -> tuple[list[dict], list[tuple[str, str]]]
             "sigUrl": ver.get("sigUrl", ""),
             "certUrl": ver.get("certUrl", ""),
             "certIdentityRegexp": ver.get("certIdentityRegexp", ""),
+            "certIdentity": ver.get("certIdentity", ""),
             "certOidcIssuer": ver.get("certOidcIssuer", ""),
             "sumEntry": ver.get("sumEntry", ""),
+            # cosign "blob" mode: verify the artifact directly via .sig/.cert
+            "blobSigUrl": ver.get("blobSigUrl", ""),
+            "blobCertUrl": ver.get("blobCertUrl", ""),
         })
     return allowed, skipped
 

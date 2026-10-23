@@ -1,0 +1,24 @@
+{
+  "schemaVersion": "0.1.0",
+  "name": "kubernetes",
+  "description": "Kubernetes client tooling: kubectl, installed from a cosign-verified upstream binary.",
+  "tools": [
+    {
+      "name": "kubectl",
+      "capability": "k8s-client",
+      "source": "binary",
+      "version": "1.37.1",
+      "url": "https://dl.k8s.io/release/v1.37.1/bin/linux/amd64/kubectl",
+      "install": { "kind": "raw", "binIn": "kubectl", "binOut": "kubectl" },
+      "verification": {
+        "method": "upstream-signature",
+        "checksum": "sha256:65691ff77eb6fa44c908b77a1082c9f092c3b9733b5cefabec0d1104890e21a8",
+        "blobSigUrl": "https://dl.k8s.io/release/v1.37.1/bin/linux/amd64/kubectl.sig",
+        "blobCertUrl": "https://dl.k8s.io/release/v1.37.1/bin/linux/amd64/kubectl.cert",
+        "certIdentityRegexp": "krel-.*@k8s-releng-prod.iam.gserviceaccount.com",
+        "certOidcIssuer": "https://accounts.google.com",
+        "note": "cosign keyless blob: verify kubectl.sig/.cert directly against the Kubernetes release identity, then pin the published sha256"
+      }
+    }
+  ]
+}

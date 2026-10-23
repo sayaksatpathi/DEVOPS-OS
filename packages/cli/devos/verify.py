@@ -48,12 +48,21 @@ def install_allowed(verification: dict) -> tuple[bool, str]:
     if not verification.get("checksum"):
         return False, "no checksum recorded"
     if method == "upstream-signature":
-        # A real signature requires the signature material to actually verify (not a label).
-        need = ("sumsUrl", "sigUrl", "certUrl", "certIdentityRegexp", "certOidcIssuer")
-        missing = [k for k in need if not verification.get(k)]
-        if missing:
-            return False, f"upstream-signature missing material: {', '.join(missing)} (would be TOFU)"
-        return True, "upstream-signature (cosign-verifiable) + checksum"
+        # A real signature requires signature material to actually verify (not a label).
+        # Two accepted cosign modes:
+        #  - "sums": cosign-verify a SHA256SUMS file, then checksum the artifact against it.
+        #  - "blob": cosign-verify the artifact blob directly (.sig + .cert).
+        ident = verification.get("certIdentityRegexp") or verification.get("certIdentity")
+        issuer = verification.get("certOidcIssuer")
+        has_sums = all(verification.get(k) for k in ("sumsUrl", "sigUrl", "certUrl"))
+        has_blob = all(verification.get(k) for k in ("blobSigUrl", "blobCertUrl"))
+        if not (ident and issuer):
+            return False, "upstream-signature missing cert identity/issuer (would be TOFU)"
+        if has_sums:
+            return True, "upstream-signature (cosign sums) + checksum"
+        if has_blob:
+            return True, "upstream-signature (cosign blob) + checksum"
+        return False, "upstream-signature missing sums or blob material (would be TOFU)"
     if method == "attestation":
         return True, f"{method} + checksum"
     if method == "fallback":

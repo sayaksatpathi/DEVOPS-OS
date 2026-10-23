@@ -12,7 +12,7 @@
     dest: /usr/local/bin/cosign
     mode: "0755"
     checksum: "sha256:424e2c97d0b45fd7a6b608a87f090f35633f4c23ece5f092d48bba11aaf4bbfa"
-  when: spec.sumsUrl | default('') | length > 0
+  when: (spec.sumsUrl | default('') | length > 0) or (spec.blobSigUrl | default('') | length > 0)
 
 - name: "Download SHA256SUMS + signature + cert for {{ spec.name }}"
   become: true
@@ -73,6 +73,34 @@
     checksum: "{{ devos_checksum }}"
     mode: "0644"
     force: true
+
+# cosign "blob" mode: verify the downloaded artifact directly against its .sig/.cert.
+- name: "Blob mode: download {{ spec.name }} signature + cert"
+  become: true
+  ansible.builtin.get_url:
+    url: "{{ item.url }}"
+    dest: "/tmp/devos-{{ spec.name }}-blob{{ item.name }}"
+    mode: "0644"
+  loop:
+    - { name: sig,  url: "{{ spec.blobSigUrl }}" }
+    - { name: cert, url: "{{ spec.blobCertUrl }}" }
+  loop_control: { label: "{{ item.name }}" }
+  when: spec.blobSigUrl | default('') | length > 0
+
+- name: "Blob mode: cosign verify-blob the {{ spec.name }} artifact (authenticity)"
+  become: true
+  ansible.builtin.command:
+    argv:
+      - cosign
+      - verify-blob
+      - "--certificate=/tmp/devos-{{ spec.name }}-blobcert"
+      - "--signature=/tmp/devos-{{ spec.name }}-blobsig"
+      - "--certificate-identity-regexp={{ spec.certIdentityRegexp | default('') }}"
+      - "--certificate-oidc-issuer={{ spec.certOidcIssuer }}"
+      - "/tmp/devos-dl-{{ spec.name }}"
+  register: devos_cosign_blob
+  changed_when: false
+  when: spec.blobSigUrl | default('') | length > 0
 
 - name: "Raw binary: install {{ spec.name }} to /usr/local/bin"
   become: true

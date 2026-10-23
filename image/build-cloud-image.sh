@@ -86,6 +86,9 @@ virt-copy-out -a "$out/devos.qcow2" /var/lib/devos/packages.tsv "$out/" 2>/dev/n
 # SBOM completeness: binary tools + the devos engine (not just apt packages).
 virt-copy-out -a "$out/devos.qcow2" /var/lib/devos/extra-components.tsv "$out/" 2>/dev/null \
   && echo "SBOM extra components extracted" || echo "warn: extra-components copy-out failed"
+# §15 per-package license inventory (dpkg copyright) extracted for the human review/sign-off.
+virt-copy-out -a "$out/devos.qcow2" /var/lib/devos/license-inventory.tsv "$out/" 2>/dev/null \
+  && echo "license inventory extracted" || echo "warn: license-inventory copy-out failed"
 
 # Hardening (hole #4/#5) must have applied.
 if grep -q "DEVOS_HARDEN_FAIL" "$out/serial.log"; then

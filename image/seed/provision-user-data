@@ -14,6 +14,7 @@ runcmd:
   - [ bash, -c, "mkdir -p /var/lib/devos; { echo -e \"devos-engine\\t0.1.0\"; for b in tofu kubectl helm; do command -v $b >/dev/null 2>&1 && echo -e \"$b\\t$($b version 2>/dev/null | head -1 | tr -d '\\t')\"; done; } > /var/lib/devos/extra-components.tsv" ]
   - [ bash, -c, "cd /opt/devos && PYTHONPATH=packages/cli DEVOS_ROOT=/opt/devos python3 -m devos profile apply core --confirm 2>&1 | grep -q 'changed=0' && echo DEVOS_IDEMPOTENT_OK > /dev/ttyS0 || echo DEVOS_IDEMPOTENT_FAIL > /dev/ttyS0" ]
   - [ bash, -c, "mkdir -p /var/lib/devos && dpkg-query -W -f='${Package}\\t${Version}\\n' > /var/lib/devos/packages.tsv 2>/dev/null; echo DEVOS_SBOM_WRITTEN > /dev/ttyS0" ]
+  - [ bash, -c, "cd /opt/devos && bash tools/license-inventory.sh /var/lib/devos/license-inventory.tsv > /dev/ttyS0 2>&1 && echo DEVOS_LICENSE_INVENTORY_OK > /dev/ttyS0 || echo DEVOS_LICENSE_INVENTORY_WARN > /dev/ttyS0" ]
   - [ bash, -c, "if command -v dracut >/dev/null 2>&1; then dracut -f > /dev/ttyS0 2>&1; else update-initramfs -u > /dev/ttyS0 2>&1; fi && ls /boot/initrd.img-* >/dev/null 2>&1 && echo DEVOS_INITRAMFS_OK > /dev/ttyS0 || echo DEVOS_INITRAMFS_FAIL > /dev/ttyS0" ]
   - [ bash, -c, "printf 'DEVOS_KDUMP %s\\n' \"$(systemctl is-enabled kdump-tools 2>/dev/null || echo absent)\" > /dev/ttyS0" ]
   - [ bash, -c, "mkdir -p /var/lib/devos && date -u +%FT%TZ > /var/lib/devos/provisioned && echo DEVOS_PROVISION_OK > /dev/ttyS0" ]

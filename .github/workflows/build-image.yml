@@ -248,7 +248,7 @@ jobs:
           ver="${GITHUB_REF_NAME}"
           sbom="image/out/devos-${ver}.sbom.cdx.json"
           cp -f image/out/devos.sbom.cdx.json "$sbom" 2>/dev/null || true
-          for f in "$sbom" image/out/packages.tsv image/out/trivy-vuln.txt image/out/licenses.txt; do
+          for f in "$sbom" image/out/packages.tsv image/out/trivy-vuln.txt image/out/licenses.txt image/out/license-inventory.tsv; do
             [ -f "$f" ] && gh release upload "$ver" "$f" --clobber || true
           done
 

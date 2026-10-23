@@ -167,3 +167,8 @@ planning/audit work, not shipped software.
 - Verified: in-guest `apt full-upgrade` applies and the system converges (DEVOS_UPGRADE_OK).
 - Fixes along the way: hold cloud-init/snapd (self-disruption), NEEDRESTART_MODE=a +
   --force-confold (no prompts), judge success by convergence state not the noisy exit code.
+
+#### 2026-10-23 — Secure Boot enforcement verified in-guest (hole #6 closed)
+- SB boot test now requires DEVOS_SECUREBOOT_ENFORCED — emitted only when `mokutil --sb-state`
+  reports "SecureBoot enabled" inside the booted guest. Upgrades #6 from "boots under secboot
+  firmware" to "SB enforcing with a signed kernel, confirmed in-guest". Verified green.

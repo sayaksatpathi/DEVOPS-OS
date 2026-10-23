@@ -279,8 +279,8 @@ jobs:
         env:
           LIBGUESTFS_BACKEND: direct
         run: sudo -E bash image/build-cloud-image.sh "core,containers,desktop"
-      - name: Boot test — assert GNOME session (gdm3 enabled + gnome-shell present)
-        run: sudo -E env MARKER=DEVOS_DESKTOP_OK_GNOME_SESSION bash image/boot-test.sh
+      - name: Boot test — assert GNOME actually renders (gnome-shell greeter running)
+        run: sudo -E env MARKER=DEVOS_DESKTOP_RENDER_OK bash image/boot-test.sh
       - name: Fix artifact ownership
         if: always()
         run: sudo chown -R "$USER" image/out || true

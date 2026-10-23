@@ -191,6 +191,12 @@ def _run_profile_ansible(root: Path, name: str, packages: list[str], *,
         return EXIT_ENGINE
     import os
     run_env = {**os.environ, **env_overrides}
+    # Ansible refuses to run without a UTF-8 locale (e.g. in a minimal chroot / encrypted
+    # in-target install where LANG is unset). Ensure one — C.UTF-8 is always available.
+    _loc = (run_env.get("LC_ALL") or run_env.get("LANG") or "")
+    if "UTF-8" not in _loc.upper() and "UTF8" not in _loc.upper():
+        run_env["LC_ALL"] = "C.UTF-8"
+        run_env["LANG"] = "C.UTF-8"
     try:
         rc = subprocess.call(cmd, cwd=str(cwd), env=run_env)
     except OSError as e:

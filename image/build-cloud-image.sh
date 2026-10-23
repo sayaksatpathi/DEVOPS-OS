@@ -95,6 +95,17 @@ grep -q "DEVOS_HARDENED_OK" "$out/serial.log" && echo "image hardening: OK" || e
 # §3 initramfs regeneration must have succeeded.
 if grep -q "DEVOS_INITRAMFS_FAIL" "$out/serial.log"; then echo "ERROR: initramfs regeneration failed"; exit 1; fi
 grep -q "DEVOS_INITRAMFS_OK" "$out/serial.log" && echo "initramfs: OK" || echo "warn: initramfs marker not seen"
+# §13 accessibility stack must be present on desktop builds (orca/at-spi/cups).
+case ",$PROFILES," in
+  *,desktop,*)
+    a11y="$(grep -o "DEVOS_A11Y.*" "$out/serial.log" | tail -1 || true)"
+    echo "a11y: ${a11y:-<none>}"
+    if echo "$a11y" | grep -q "orca=y" && echo "$a11y" | grep -q "cups=y"; then
+      echo "accessibility stack: OK"
+    else
+      echo "ERROR: desktop a11y stack incomplete ($a11y)"; exit 1
+    fi ;;
+esac
 # Container smoke test (hole #7) — soft (needs registry network during provisioning).
 grep -q "DEVOS_CONTAINER_RUN_OK" "$out/serial.log" && echo "container run: OK" \
   || echo "note: container-run marker not seen (profile may lack podman, or registry unreachable)"

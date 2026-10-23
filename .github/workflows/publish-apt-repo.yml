@@ -1,0 +1,29 @@
+name: Publish APT repo
+on:
+  workflow_dispatch:
+    inputs:
+      deb_artifact_run:
+        description: "Run ID holding the .deb artifacts to publish"
+        required: true
+jobs:
+  publish:
+    # Manual, gated: builds the signed apt repo tree. Hosting/upload is an operator step.
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Install reprepro
+        run: sudo apt-get update && sudo apt-get install -y reprepro
+      - name: Import signing key
+        env:
+          DEVOS_REPO_GPG_KEY: ${{ secrets.DEVOS_REPO_GPG_KEY }}
+        run: |
+          if [ -z "$DEVOS_REPO_GPG_KEY" ]; then
+            echo "::error::DEVOS_REPO_GPG_KEY secret not set — see docs/key-custody-runbook.md"; exit 1
+          fi
+          echo "$DEVOS_REPO_GPG_KEY" | gpg --batch --import
+      - name: Build signed repo (requires debs)
+        run: |
+          mkdir -p debs
+          echo "Download .deb artifacts from run ${{ github.event.inputs.deb_artifact_run }} into ./debs, then run:"
+          echo "bash packaging/apt-repo/build-apt-repo.sh ./debs <keyid>"

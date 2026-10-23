@@ -207,3 +207,9 @@ planning/audit work, not shipped software.
 #### 2026-10-23 — §4 SSD TRIM + §3 GRUB defaults
 - §4: enable fstrim.timer (periodic SSD TRIM) in baseline.
 - §3: GRUB defaults drop-in (visible menu, recovery entries kept) + update-grub.
+
+#### 2026-10-23 — Automatable portions of §15/§16/§17 + §13 QA
+- §16 governance: CODEOWNERS, DCO (docs/dco.md), branch-protection runbook.
+- §15 legal: tools/license-inventory.sh (per-package license list) + review/sign-off template.
+- §17 infra: key-custody runbook + publish-apt-repo workflow (gated on a signing secret).
+- §13 QA: desktop builds now assert the a11y stack (orca+cups) is present.

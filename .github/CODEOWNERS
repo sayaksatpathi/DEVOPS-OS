@@ -1,0 +1,7 @@
+# DevOS code owners (governance §16). Review routing until more maintainers join.
+*                       @sayaksatpathi
+/packages/cli/          @sayaksatpathi
+/provision/             @sayaksatpathi
+/image/                 @sayaksatpathi
+/.github/               @sayaksatpathi
+/SECURITY.md            @sayaksatpathi

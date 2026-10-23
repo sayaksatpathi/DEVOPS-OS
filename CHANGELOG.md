@@ -198,3 +198,8 @@ planning/audit work, not shipped software.
 #### 2026-10-23 — §5 corporate-CA trust
 - devos_ca role: system CA bundle made authoritative for Node/Python/curl/git/Rust via
   /etc/profile.d; installs admin-provided CA certs. Applied to every image.
+
+#### 2026-10-23 — §1 Kubernetes profile + §8 snapshot reproducibility
+- §1: `kubernetes` profile (kubectl) via cosign blob verification; new blob-verify mode.
+- §8: DEVOS_APT_SNAPSHOT build option pins apt to snapshot.ubuntu.com (deb822 Snapshot) for
+  strict, time-stable reproducibility. Default is a no-op.

@@ -57,7 +57,16 @@ virt-customize -a "$out/devos.qcow2" \
   --write "/etc/devos-release:DevOS experimental cloud image; profiles=${PROFILES}; base=${BASE_FILE}"
 
 echo "== [4/6] provision by booting (cloud-init runs devos apply; network works here) =="
-sed "s/__PROFILES__/${PROFILES//,/ }/g" image/seed/provision-user-data > "$out/prov-user-data"
+# §8 strict reproducibility: if DEVOS_APT_SNAPSHOT=<YYYYMMDDTHHMMSSZ> is set, pin apt to
+# snapshot.ubuntu.com at that timestamp (deb822 Snapshot field) so installs are time-stable.
+if [ -n "${DEVOS_APT_SNAPSHOT:-}" ]; then
+  snap_cmd="[ bash, -c, \"printf 'Snapshot: %s\\\\n' '${DEVOS_APT_SNAPSHOT}' >> /etc/apt/sources.list.d/ubuntu.sources && echo DEVOS_APT_SNAPSHOT_${DEVOS_APT_SNAPSHOT} > /dev/ttyS0\" ]"
+  echo "APT snapshot pin: ${DEVOS_APT_SNAPSHOT}"
+else
+  snap_cmd='[ bash, -c, "true" ]'
+fi
+sed -e "s/__PROFILES__/${PROFILES//,/ }/g" -e "s|  - __SNAPSHOT__|  - ${snap_cmd}|" \
+  image/seed/provision-user-data > "$out/prov-user-data"
 cp image/seed/meta-data "$out/prov-meta-data"
 cloud-localds "$out/prov-seed.iso" "$out/prov-user-data" "$out/prov-meta-data"
 bash image/run-vm.sh "$out/devos.qcow2" "$out/prov-seed.iso" "DEVOS_PROVISION_OK" 1800 \

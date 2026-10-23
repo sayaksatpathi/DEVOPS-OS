@@ -46,7 +46,8 @@ a stale lock*. Therefore DevOS uses **best-effort pinning**:
 
 **Strict, time-stable reproducibility** requires a *snapshot archive*, not the live one:
 pin apt sources to **snapshot.ubuntu.com** at a recorded timestamp and record that timestamp
-in the lockfile. That is the correct long-term design (tracked as a roadmap item); the current
+in the lockfile. DevOS implements this: set `DEVOS_APT_SNAPSHOT=<YYYYMMDDTHHMMSSZ>` at build time and
+the provisioning pins apt to that snapshot (deb822 `Snapshot:` field). The default
 engine does best-effort pinning + drift reporting, which is honest about when reproducibility
 was broken by an archive move.
 

@@ -326,6 +326,16 @@ jobs:
       - name: Fix artifact ownership
         if: always()
         run: sudo chown -R "$USER" image/out || true
+      - name: Upload installer serial logs (small — cheap to inspect)
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: installer-serial-logs
+          path: |
+            image/out/installer-serial.log
+            image/out/installed-serial.log
+          retention-days: 7
+          if-no-files-found: warn
       - name: Upload installer ISO
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -334,7 +344,6 @@ jobs:
           path: |
             image/out/devos-installer-amd64.iso
             image/out/devos-installer-amd64.iso.sha256
-            image/out/installer-serial.log
           retention-days: 7
           if-no-files-found: warn
 

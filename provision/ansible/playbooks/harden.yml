@@ -7,3 +7,4 @@
   roles:
     - devos_hardening
     - devos_ca
+    - devos_branding

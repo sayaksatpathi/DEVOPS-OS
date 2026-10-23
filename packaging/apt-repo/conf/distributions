@@ -1,0 +1,8 @@
+Origin: DevOS
+Label: DevOS
+Suite: stable
+Codename: devos
+Architectures: amd64 source
+Components: main
+Description: DevOS apt repository (experimental)
+SignWith: __DEVOS_REPO_GPG_KEYID__

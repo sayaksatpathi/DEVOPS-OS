@@ -92,6 +92,9 @@ if grep -q "DEVOS_HARDEN_FAIL" "$out/serial.log"; then
   echo "ERROR: image hardening failed"; exit 1
 fi
 grep -q "DEVOS_HARDENED_OK" "$out/serial.log" && echo "image hardening: OK" || echo "warn: hardening marker not seen"
+# §3 initramfs regeneration must have succeeded.
+if grep -q "DEVOS_INITRAMFS_FAIL" "$out/serial.log"; then echo "ERROR: initramfs regeneration failed"; exit 1; fi
+grep -q "DEVOS_INITRAMFS_OK" "$out/serial.log" && echo "initramfs: OK" || echo "warn: initramfs marker not seen"
 # Container smoke test (hole #7) — soft (needs registry network during provisioning).
 grep -q "DEVOS_CONTAINER_RUN_OK" "$out/serial.log" && echo "container run: OK" \
   || echo "note: container-run marker not seen (profile may lack podman, or registry unreachable)"

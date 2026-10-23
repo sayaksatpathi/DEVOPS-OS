@@ -1,0 +1,33 @@
+---
+# §6 DevOS branding: identity in login banners and os-release (non-destructive additions).
+- name: Set login banner (/etc/issue, /etc/issue.net)
+  become: true
+  ansible.builtin.copy:
+    dest: "{{ item }}"
+    mode: "0644"
+    content: |
+      DevOS (experimental) — Ubuntu-based DevOps workstation
+      \n \l
+  loop:
+    - /etc/issue
+    - /etc/issue.net
+
+- name: Set message of the day
+  become: true
+  ansible.builtin.copy:
+    dest: /etc/motd
+    mode: "0644"
+    content: |
+      Welcome to DevOS — experimental DevOps-focused OS.
+      Manage your toolchain with:  devos profile list | devos doctor | devos diag
+      Docs: https://github.com/sayaksatpathi/DEVOPS-OS
+
+- name: Add DevOS fields to os-release (VARIANT/HOME_URL)
+  become: true
+  ansible.builtin.blockinfile:
+    path: /etc/os-release
+    marker: "# {mark} DEVOS"
+    block: |
+      VARIANT="DevOS"
+      VARIANT_ID=devos
+      HOME_URL="https://github.com/sayaksatpathi/DEVOPS-OS"

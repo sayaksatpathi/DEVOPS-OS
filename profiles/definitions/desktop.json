@@ -1,9 +1,14 @@
 {
   "schemaVersion": "0.1.0",
   "name": "desktop",
-  "description": "GNOME desktop environment (Ubuntu minimal desktop) — turns the cloud/server base into a full graphical workstation that boots to a GNOME login.",
+  "description": "GNOME desktop environment (Ubuntu minimal desktop) with remote desktop (§6) and accessibility stack (§13) — turns the cloud/server base into a graphical workstation that boots to a GNOME login.",
   "tools": [
     { "name": "ubuntu-desktop-minimal", "capability": "desktop-environment", "source": "apt" },
-    { "name": "gdm3", "capability": "display-manager", "source": "apt" }
+    { "name": "gdm3", "capability": "display-manager", "source": "apt" },
+    { "name": "gnome-remote-desktop", "capability": "remote-desktop", "source": "apt" },
+    { "name": "pipewire", "capability": "audio", "source": "apt" },
+    { "name": "orca", "capability": "a11y-screenreader", "source": "apt" },
+    { "name": "speech-dispatcher", "capability": "a11y-speech", "source": "apt" },
+    { "name": "cups", "capability": "printing", "source": "apt" }
   ]
 }

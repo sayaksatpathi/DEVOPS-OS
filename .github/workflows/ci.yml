@@ -52,4 +52,4 @@ jobs:
       - name: Install ansible-lint
         run: pip install ansible-lint
       - name: Lint provisioning
-        run: ansible-lint provision/ansible
+        run: ANSIBLE_ROLES_PATH=provision/ansible/roles ansible-lint provision/ansible

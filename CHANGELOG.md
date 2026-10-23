@@ -185,3 +185,8 @@ planning/audit work, not shipped software.
 - §12: compressed-image-size performance budget (enforced); ansible-lint now ENFORCED
   (was advisory) with a .ansible-lint policy.
 - §2: auditd installed + enabled in the hardening role.
+
+#### 2026-10-23 — §10 installer completeness + §2 pin Actions by SHA
+- §10: installer now sets timezone, applies security updates during install, configures
+  networking explicitly with IPv6 (dhcp6).
+- §2 supply chain: all GitHub Actions pinned to full commit SHAs (tag-movement attacks).

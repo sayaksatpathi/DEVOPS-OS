@@ -12,6 +12,18 @@ autoinstall:
   locale: en_US.UTF-8
   keyboard:
     layout: us
+  timezone: Etc/UTC
+  updates: security          # apply security updates during install
+  refresh-installer:
+    update: false
+  network:
+    version: 2
+    ethernets:
+      any:
+        match:
+          name: "e*"
+        dhcp4: true
+        dhcp6: true           # §5 IPv6 enabled
   identity:
     hostname: devos
     username: devos

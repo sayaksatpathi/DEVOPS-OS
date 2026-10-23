@@ -1,0 +1,41 @@
+.TH DEVOS 1 "2026" "DevOS" "DevOS Manual"
+.SH NAME
+devos \- DevOS reproducibility engine
+.SH SYNOPSIS
+.B devos
+[\fICOMMAND\fR] [\fIOPTIONS\fR]
+.SH DESCRIPTION
+devos manages reproducible DevOps toolchains via declarative profiles and lockfiles.
+It runs unprivileged; privileged steps use per-operation elevation.
+.SH COMMANDS
+.TP
+.B doctor
+Report environment facts (no changes).
+.TP
+.B profile list|inspect|validate NAME
+List, print, or validate profiles.
+.TP
+.B profile apply NAME [--confirm] [--ask-become-pass]
+Install a profile (dry-run unless --confirm). Pins to the lockfile when present.
+.TP
+.B profile remove NAME [--confirm]
+Remove a profile's packages (preserves user data).
+.TP
+.B profile lock NAME
+Resolve installed versions into locks/NAME.lock.json.
+.TP
+.B profile rollback NAME [--to FILE] [--confirm]
+Reinstall exact versions from a lockfile.
+.TP
+.B drift check --profile NAME
+Report declared-vs-installed drift (no changes).
+.TP
+.B update [--system]
+Report available tool (or whole-OS) updates. Read-only.
+.TP
+.B tools list --profile NAME
+List managed tool versions.
+.SH EXIT STATUS
+0 ok, 1 validation failure, 2 usage, 3 not found, 4 engine error, 5 provisioning failure.
+.SH SEE ALSO
+Project: https://github.com/sayaksatpathi/DEVOPS-OS

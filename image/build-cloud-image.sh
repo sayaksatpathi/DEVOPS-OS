@@ -40,7 +40,12 @@ echo "${want}  $out/$BASE_FILE" | sha256sum -c -
 echo "== [3/6] copy DevOS source into the image (offline) =="
 tar czf "$out/devos-src.tar.gz" --exclude=.git --exclude='image/out' .
 cp "$out/$BASE_FILE" "$out/devos.qcow2"
-qemu-img resize "$out/devos.qcow2" +3G
+# Headroom: GNOME desktop adds ~2 GB, so grow more when a desktop profile is requested.
+# qcow2 is sparse + the final image is compressed, so extra virtual size costs little.
+case ",$PROFILES," in
+  *,desktop,*) qemu-img resize "$out/devos.qcow2" +12G ;;
+  *)           qemu-img resize "$out/devos.qcow2" +4G ;;
+esac
 export LIBGUESTFS_BACKEND="${LIBGUESTFS_BACKEND:-direct}"
 virt-customize -a "$out/devos.qcow2" \
   --copy-in "$out/devos-src.tar.gz:/opt" \

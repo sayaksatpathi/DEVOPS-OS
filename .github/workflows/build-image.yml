@@ -280,7 +280,7 @@ jobs:
           LIBGUESTFS_BACKEND: direct
         run: sudo -E bash image/build-cloud-image.sh "core,containers,desktop"
       - name: Boot test — assert GNOME actually renders (gnome-shell greeter running)
-        run: sudo -E env MARKER=DEVOS_DESKTOP_RENDER_OK bash image/boot-test.sh
+        run: sudo -E env MARKER=DEVOS_DESKTOP_RENDER_OK GPU=1 bash image/boot-test.sh
       - name: Fix artifact ownership
         if: always()
         run: sudo chown -R "$USER" image/out || true

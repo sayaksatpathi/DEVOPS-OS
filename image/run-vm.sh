@@ -58,7 +58,7 @@ timeout "$tmo" qemu-system-x86_64 \
   -drive file="$img",if=virtio,format=qcow2 \
   -drive file="$seed",if=virtio,format=raw \
   -netdev user,id=n0 -device virtio-net-pci,netdev=n0 \
-  -device virtio-gpu-pci \
+  ${GPU:+-device virtio-gpu-pci} \
   -display none -serial file:"$log" &
 qp=$!
 

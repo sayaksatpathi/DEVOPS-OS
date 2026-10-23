@@ -10,6 +10,10 @@ set -euo pipefail
 PROFILES="${1:-core}"
 here="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$here"
+# §11 reproducible build: derive a stable timestamp from the source commit so tools that
+# honor SOURCE_DATE_EPOCH don't embed the wall-clock build time.
+export SOURCE_DATE_EPOCH="$(git -C "$here" log -1 --format=%ct 2>/dev/null || date +%s)"
+echo "SOURCE_DATE_EPOCH=$SOURCE_DATE_EPOCH"
 # shellcheck disable=SC1091
 source image/base-image.env
 out="image/out"
@@ -98,4 +102,15 @@ qemu-img convert -O qcow2 -c "$out/devos.qcow2" "$out/devos.final.qcow2"
 mv -f "$out/devos.final.qcow2" "$out/devos.qcow2"
 qemu-img info "$out/devos.qcow2"
 ( cd "$out" && sha256sum devos.qcow2 | tee devos.qcow2.sha256 )
+# §12 performance budget: record + enforce a compressed-image-size budget.
+size_bytes="$(stat -c%s "$out/devos.qcow2")"
+size_mb=$(( size_bytes / 1048576 ))
+budget_mb="${DEVOS_IMAGE_BUDGET_MB:-1800}"
+case ",$PROFILES," in *,desktop,*) budget_mb="${DEVOS_IMAGE_BUDGET_MB:-4096}" ;; esac
+printf 'image_size_mb=%s\nbudget_mb=%s\nprofiles=%s\nsource_date_epoch=%s\n' \
+  "$size_mb" "$budget_mb" "$PROFILES" "$SOURCE_DATE_EPOCH" | tee "$out/perf-budget.txt"
+if [ "$size_mb" -gt "$budget_mb" ]; then
+  echo "PERF BUDGET EXCEEDED: image ${size_mb}MB > ${budget_mb}MB"; exit 1
+fi
+echo "perf budget OK (${size_mb}MB <= ${budget_mb}MB)"
 echo "built: $out/devos.qcow2"

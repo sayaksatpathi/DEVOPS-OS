@@ -179,3 +179,9 @@ planning/audit work, not shipped software.
 - §11 image-hygiene VERIFICATION (was only asserted): image/verify-hygiene.sh scans the built
   qcow2 offline and FAILS the build on any leak — machine-id, SSH host keys, bash history,
   builder source tarball, or root authorized_keys. Also removes /opt/devos-src.tar.gz.
+
+#### 2026-10-23 — §11 build integrity, §12 QA, §2 auditd
+- §11: SOURCE_DATE_EPOCH from the source commit (reproducible timestamps).
+- §12: compressed-image-size performance budget (enforced); ansible-lint now ENFORCED
+  (was advisory) with a .ansible-lint policy.
+- §2: auditd installed + enabled in the hardening role.

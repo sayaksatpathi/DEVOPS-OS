@@ -52,4 +52,4 @@ jobs:
       - name: Install ansible-lint
         run: pip install ansible-lint
       - name: Lint provisioning
-        run: ansible-lint provision/ansible || true   # advisory until roles are hardened
+        run: ansible-lint provision/ansible

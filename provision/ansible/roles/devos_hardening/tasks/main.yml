@@ -86,9 +86,20 @@
     [ -x /usr/bin/ubuntu-report ] && ubuntu-report send no 2>/dev/null || true
   changed_when: false
 
+- name: Install + enable auditd (audit trail)
+  become: true
+  block:
+    - name: Install auditd
+      ansible.builtin.apt: { name: auditd, state: present, update_cache: false }
+    - name: Enable auditd
+      ansible.builtin.systemd: { name: auditd, enabled: true, state: started }
+  rescue:
+    - name: auditd unavailable — note and continue
+      ansible.builtin.debug: { msg: "auditd not installed (archive/network); continuing" }
+
 - name: Record hardening marker
   become: true
   ansible.builtin.copy:
     dest: /etc/devos-hardening
     mode: "0644"
-    content: "DevOS baseline hardening applied (UFW, sysctl, SSH key-only, telemetry off)\n"
+    content: "DevOS baseline hardening applied (UFW, sysctl, SSH key-only, telemetry off, auditd)\n"

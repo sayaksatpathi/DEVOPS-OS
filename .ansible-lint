@@ -1,0 +1,12 @@
+# DevOS ansible-lint policy. Enforce correctness/security; relax a few cosmetic rules that
+# don't apply to our dependency-free, command-driven roles.
+profile: basic
+exclude_paths:
+  - locks/
+skip_list:
+  - var-naming[no-role-prefix]   # our vars are already devos_*-scoped by convention
+  - risky-shell-pipe             # we use shell for ufw/apt-mark with explicit set -e where needed
+  - command-instead-of-module    # deliberate: dependency-free (no community.general)
+  - no-changed-when              # handled case-by-case
+warn_list:
+  - experimental

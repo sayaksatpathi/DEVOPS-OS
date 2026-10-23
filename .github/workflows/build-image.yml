@@ -87,8 +87,8 @@ jobs:
       - name: Boot test (QEMU / UEFI)
         run: sudo -E bash image/boot-test.sh
 
-      - name: Secure Boot boot test (signed chain under SB)
-        run: sudo -E env SECBOOT=1 bash image/boot-test.sh
+      - name: Secure Boot boot test (SB enforced + signed kernel, confirmed in-guest)
+        run: sudo -E env SECBOOT=1 MARKER=DEVOS_SECUREBOOT_ENFORCED bash image/boot-test.sh
 
       - name: vTPM boot test (boots with an emulated TPM 2.0)
         # Best-effort: TPM-backed FDE is deferred (ADR-0006); a flaky swtpm harness on the

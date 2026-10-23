@@ -5,6 +5,7 @@ runcmd:
   - [ bash, -c, "if command -v git >/dev/null 2>&1 && command -v jq >/dev/null 2>&1; then echo DEVOS_BOOT_OK_PROFILE_CORE > /dev/ttyS0; else echo DEVOS_BOOT_FAIL_missing_core_tools > /dev/ttyS0; fi" ]
   - [ bash, -c, "if command -v gnome-shell >/dev/null 2>&1; then systemctl is-enabled gdm3 >/dev/null 2>&1 && echo DEVOS_DESKTOP_OK_GNOME_SESSION > /dev/ttyS0 || echo DEVOS_DESKTOP_FAIL_gdm > /dev/ttyS0; fi" ]
   - [ bash, -c, "if command -v gnome-shell >/dev/null 2>&1; then printf 'DEVOS_A11Y orca=%s atspi=%s cups=%s pipewire=%s\\n' \"$(command -v orca >/dev/null 2>&1 && echo y || echo n)\" \"$(dpkg -l 'at-spi2*' 2>/dev/null | grep -q ^ii && echo y || echo n)\" \"$(systemctl list-unit-files 2>/dev/null | grep -q cups && echo y || echo n)\" \"$(systemctl list-unit-files 2>/dev/null | grep -q pipewire && echo y || echo n)\" > /dev/ttyS0; fi" ]
+  - [ bash, -c, "command -v mokutil >/dev/null 2>&1 || (export DEBIAN_FRONTEND=noninteractive; apt-get install -y mokutil >/dev/null 2>&1); s=$(mokutil --sb-state 2>/dev/null | tr -d '\\n'); echo \"DEVOS_SB_STATE [$s]\" > /dev/ttyS0; echo \"$s\" | grep -qi 'SecureBoot enabled' && echo DEVOS_SECUREBOOT_ENFORCED > /dev/ttyS0 || true" ]
   - [ bash, -c, "cat /etc/devos-release > /dev/ttyS0 2>/dev/null || true" ]
 power_state:
   mode: poweroff

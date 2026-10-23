@@ -26,9 +26,11 @@ autoinstall:
       password: "__LUKSPASS__"
   late-commands:
     - "echo DEVOS_INSTALL_START_FDE > /dev/ttyS0"
-    - "cp /cdrom/devos-src.tar.gz /target/opt/devos-src.tar.gz"
-    - "mkdir -p /target/opt/devos && tar xzf /target/opt/devos-src.tar.gz -C /target/opt/devos"
-    - "curtin in-target --target=/target -- bash -c 'cd /opt/devos && for p in __PROFILES__; do PYTHONPATH=packages/cli DEVOS_ROOT=/opt/devos python3 -m devos profile apply $p --confirm; done'"
+    # warmup: ensure the (decrypted) target is mounted and writable, like the non-FDE path
+    - "curtin in-target --target=/target -- bash -c 'mkdir -p /opt; true' && echo DEVOS_FDE_STEP_target_ok > /dev/ttyS0 || echo DEVOS_FDE_STEP_target_FAIL > /dev/ttyS0"
+    - "cp /cdrom/devos-src.tar.gz /target/opt/devos-src.tar.gz && echo DEVOS_FDE_STEP_copy_ok > /dev/ttyS0 || echo DEVOS_FDE_STEP_copy_FAIL > /dev/ttyS0"
+    - "mkdir -p /target/opt/devos && tar xzf /target/opt/devos-src.tar.gz -C /target/opt/devos && echo DEVOS_FDE_STEP_extract_ok > /dev/ttyS0 || echo DEVOS_FDE_STEP_extract_FAIL > /dev/ttyS0"
+    - "curtin in-target --target=/target -- bash -c 'cd /opt/devos && for p in __PROFILES__; do PYTHONPATH=packages/cli DEVOS_ROOT=/opt/devos python3 -m devos profile apply $p --confirm; done' && echo DEVOS_FDE_STEP_apply_ok > /dev/ttyS0 || echo DEVOS_FDE_STEP_apply_FAIL > /dev/ttyS0"
     - "curtin in-target --target=/target -- chage -d 0 devos"
     - "echo DEVOS_INSTALL_OK > /dev/ttyS0"
   shutdown: poweroff

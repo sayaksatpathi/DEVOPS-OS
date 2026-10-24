@@ -213,3 +213,10 @@ planning/audit work, not shipped software.
 - §15 legal: tools/license-inventory.sh (per-package license list) + review/sign-off template.
 - §17 infra: key-custody runbook + publish-apt-repo workflow (gated on a signing secret).
 - §13 QA: desktop builds now assert the a11y stack (orca+cups) is present.
+
+#### 2026-10-24 — #10 FDE unlock CLOSED (last critical hole)
+- Encrypted LUKS install completes, passphrase injected over serial, cryptsetup unlocks,
+  system boots to login — FDE UNLOCK PASSED, verified green.
+- Fixes: UTF-8 locale for Ansible in chroot; serial console on installed system; LVM
+  sizing-policy=all; unlock asserted by cryptsetup evidence.
+- ALL 10 critical audit holes now closed; every code-closable area done + verified.

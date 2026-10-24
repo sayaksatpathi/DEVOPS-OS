@@ -8,7 +8,7 @@ Status: `done` · `automatable-wip` · `artifact-done-human-needed` · `blocked-
    cloud-init to avoid self-disruption), fixes half-config, confirms zero non-held packages
    remain upgradable. Verified green (DEVOS_UPGRADE_OK).
 2. **Installer reboot→login** — `automatable-wip` — verifying in CI.
-3. **FDE unlock-at-boot** — `artifact-done-human-needed` — encrypted install built; unlock test needs passphrase injection (manual procedure documented).
+3. **FDE unlock-at-boot** — `done` ✅ — encrypted install + serial passphrase injection + cryptsetup unlock + boot-to-login, verified green (FDE UNLOCK PASSED).
 
 ## Supply chain
 4. **CVE scan** — `done` — SBOM attached; Trivy version fixed (attaches on release).

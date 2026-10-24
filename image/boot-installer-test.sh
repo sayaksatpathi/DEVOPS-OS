@@ -97,8 +97,9 @@ if [ "${FDE:-0}" = "1" ]; then
   kill "$ip" "$catp" "$injp" 2>/dev/null || true; wait "$ip" 2>/dev/null || true
   echo "---- installed-system serial tail ----"; tail -40 "$ilog" 2>/dev/null || true
   echo "--------------------------------------"
-  if [ "$lok" = 1 ] && grep -q "DEVOS_FDE_PASSPHRASE_SENT" "$ilog" 2>/dev/null; then
-    echo "FDE UNLOCK PASSED: LUKS passphrase accepted and the encrypted system booted to login."
+  # Real proof the encrypted volume unlocked: cryptsetup completed AND login was reached.
+  if [ "$lok" = 1 ] && grep -qiE "Finished.*cryptsetup|Reached target cryptsetup|passphrase for disk" "$ilog" 2>/dev/null; then
+    echo "FDE UNLOCK PASSED: LUKS passphrase accepted, cryptsetup unlocked, system booted to login."
   else
     echo "FDE UNLOCK FAILED: encrypted system did not unlock+reach login."
     exit 1

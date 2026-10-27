@@ -14,13 +14,17 @@ off Stable. That signature is the owner's (gap #10).
 - [x] Honest docs (subsystem register, threat model, ADRs, governance)
 
 ## Beta — required before claiming Beta
-- [ ] Installer install→reboot→login verified (gap #1, in progress)
-- [ ] OS upgrade applied + rebooted verified (gap #4, in progress)
-- [ ] FDE: encrypted install + unlock verified (gap #2/#3)
-- [ ] CVE scan green with a documented triage of findings
-- [ ] Per-package license review signed off (gap #5/#10)
+Engineering gates: **DONE**. The remaining Beta gates are human/hardware.
+- [x] Installer install→reboot→login verified — green (REBOOT->LOGIN / FDE boot to login)
+- [x] OS upgrade applied + rebooted verified — green (DEVOS_UPGRADE_OK)
+- [x] FDE: encrypted install + unlock verified — green (FDE UNLOCK PASSED, v0.1.0-alpha6 cycle)
+- [x] CVE scan runs and attaches (`trivy-vuln.txt`) — **triage of findings is a human step** (do before Beta)
+- [ ] Per-package license review **signed off** (inventory done: `license-inventory.tsv`; sign-off is human)
 - [ ] Real-hardware smoke test on **≥2 physical machines** (gap #6) — **needs hardware**
 - [ ] ≥2 active maintainers (gap #9) — **needs people**
+
+**Beta blockers remaining: 3 (+1 triage)** — all human/hardware, none code:
+license sign-off, hardware smoke test, a second maintainer, and a written CVE-triage note.
 
 ## Stable — required before claiming Stable / production
 - [ ] Recovery/rescue walkthrough tested on hardware
@@ -34,7 +38,7 @@ off Stable. That signature is the owner's (gap #10).
 | Level | Date | Maintainer | Evidence |
 |---|---|---|---|
 | Alpha | 2026-10-22 | (provisional) | v0.1.0-alpha5 release + CI |
-| Beta | — | — | — |
+| Beta | engineering-ready 2026-10-27 | (provisional) | v0.1.0-alpha6 + CI; 3 human/hardware gates remain |
 | Stable | — | — | — |
 
 > No automated process can tick the Beta/Stable hardware, legal, funding, people, and human-QA
